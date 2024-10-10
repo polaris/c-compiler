@@ -1,3 +1,4 @@
+import common
 import parser
 import utils
 from dataclasses import dataclass
@@ -30,14 +31,14 @@ class Return(Instruction):
 
 @dataclass
 class Unary(Instruction):
-    operator: 'UnaryOperator'
+    operator: 'common.UnaryOperator'
     src: 'Value'
     dst: 'Variable'
 
 
 @dataclass
 class Binary(Instruction):
-    operator: 'BinaryOperator'
+    operator: 'common.BinaryOperator'
     src1: 'Value'
     src2: 'Value'
     dst: 'Variable'
@@ -83,94 +84,6 @@ class Constant(Value):
 @dataclass
 class Variable(Value):
     identifier: str
-
-
-class UnaryOperator(Node):
-    pass
-
-
-class Complement(UnaryOperator):
-    pass
-
-
-class Negate(UnaryOperator):
-    pass
-
-
-class Not(UnaryOperator):
-    pass
-
-
-class BinaryOperator(Node):
-    pass
-
-
-class Add(BinaryOperator):
-    pass
-
-
-class Subtract(BinaryOperator):
-    pass
-
-
-class Multiply(BinaryOperator):
-    pass
-
-
-class Divide(BinaryOperator):
-    pass
-
-
-class Remainder(BinaryOperator):
-    pass
-
-
-class LeftShift(BinaryOperator):
-    pass
-
-
-class RightShift(BinaryOperator):
-    pass
-
-
-class BitwiseAnd(BinaryOperator):
-    pass
-
-
-class BitwiseOr(BinaryOperator):
-    pass
-
-
-class BitwiseXor(BinaryOperator):
-    pass
-
-
-class RelationalOperator(BinaryOperator):
-    pass
-
-
-class Equal(RelationalOperator):
-    pass
-
-
-class NotEqual(RelationalOperator):
-    pass
-
-
-class LessThan(RelationalOperator):
-    pass
-
-
-class LessThanOrEqual(RelationalOperator):
-    pass
-
-
-class GreaterThan(RelationalOperator):
-    pass
-
-
-class GreaterThanOrEqual(RelationalOperator):
-    pass
 
 
 class Translator:
@@ -225,11 +138,10 @@ class Translator:
         elif isinstance(exp, parser.Unary):
             src = self.emit_tacky(exp.inner, instructions)
             dst = Variable(utils.make_temporary())
-            tacky_op = self.convert_op(exp.operator)
-            instructions.append(Unary(tacky_op, src, dst))
+            instructions.append(Unary(exp.operator, src, dst))
             return dst
         elif isinstance(exp, parser.Binary):
-            if isinstance(exp.operator, parser.LogicalAnd):
+            if exp.operator == common.BinaryOperator.LOGICAL_AND:
                 result = Variable(utils.make_temporary())
                 false_label = self.generate_unique_label("false_label")
                 end = self.generate_unique_label("end")
@@ -243,7 +155,7 @@ class Translator:
                 instructions.append(Copy(Constant(0), result))
                 instructions.append(Label(end))
                 return result
-            elif isinstance(exp.operator, parser.LogicalOr):
+            elif exp.operator == common.BinaryOperator.LOGICAL_OR:
                 result = Variable(utils.make_temporary())
                 v1 = self.emit_tacky(exp.left, instructions)
                 true_label = self.generate_unique_label("true_label")
@@ -261,8 +173,7 @@ class Translator:
                 v1 = self.emit_tacky(exp.left, instructions)
                 v2 = self.emit_tacky(exp.right, instructions)
                 dst = Variable(utils.make_temporary())
-                tacky_op = self.convert_binop(exp.operator)
-                instructions.append(Binary(tacky_op, v1, v2, dst))
+                instructions.append(Binary(exp.operator, v1, v2, dst))
                 return dst
         elif isinstance(exp, parser.Var):
             return Variable(exp.identifier)
@@ -273,54 +184,6 @@ class Translator:
             return result
         else:
             raise SyntaxError(f'Unexpected expression type: {type(exp)}')
-
-    @staticmethod
-    def convert_op(op: 'parser.UnaryOperator') -> UnaryOperator:
-        if isinstance(op, parser.Negate):
-            return Negate()
-        elif isinstance(op, parser.Complement):
-            return Complement()
-        elif isinstance(op, parser.Not):
-            return Not()
-        else:
-            raise SyntaxError(f'Unexpected operator type: {type(op)}')
-
-    @staticmethod
-    def convert_binop(op: 'parser.BinaryOperator') -> BinaryOperator:
-        if isinstance(op, parser.Add):
-            return Add()
-        elif isinstance(op, parser.Subtract):
-            return Subtract()
-        elif isinstance(op, parser.Multiply):
-            return Multiply()
-        elif isinstance(op, parser.Divide):
-            return Divide()
-        elif isinstance(op, parser.Remainder):
-            return Remainder()
-        elif isinstance(op, parser.LeftShift):
-            return LeftShift()
-        elif isinstance(op, parser.RightShift):
-            return RightShift()
-        elif isinstance(op, parser.BitwiseAnd):
-            return BitwiseAnd()
-        elif isinstance(op, parser.BitwiseOr):
-            return BitwiseOr()
-        elif isinstance(op, parser.BitwiseXor):
-            return BitwiseXor()
-        elif isinstance(op, parser.Equal):
-            return Equal()
-        elif isinstance(op, parser.NotEqual):
-            return NotEqual()
-        elif isinstance(op, parser.LessThan):
-            return LessThan()
-        elif isinstance(op, parser.LessThanOrEqual):
-            return LessThanOrEqual()
-        elif isinstance(op, parser.GreaterThan):
-            return GreaterThan()
-        elif isinstance(op, parser.GreaterThanOrEqual):
-            return GreaterThanOrEqual()
-        else:
-            raise SyntaxError(f'Unexpected operator type: {type(op)}')
 
 
     def generate_unique_label(self, prefix):

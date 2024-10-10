@@ -2,6 +2,8 @@ import lexer
 from dataclasses import dataclass
 from typing import List, Optional
 
+from common import UnaryOperator, BinaryOperator
+
 precedence = {
     lexer.ASTERISK: 50,
     lexer.SLASH: 50,
@@ -107,98 +109,6 @@ class Identifier(Node):
     name: str
 
 
-class UnaryOperator(Node):
-    pass
-
-
-class Negate(UnaryOperator):
-    pass
-
-
-class Complement(UnaryOperator):
-    pass
-
-
-class Not(UnaryOperator):
-    pass
-
-
-class BinaryOperator(Node):
-    pass
-
-
-class Add(BinaryOperator):
-    pass
-
-
-class Subtract(BinaryOperator):
-    pass
-
-
-class Multiply(BinaryOperator):
-    pass
-
-
-class Divide(BinaryOperator):
-    pass
-
-
-class Remainder(BinaryOperator):
-    pass
-
-
-class LeftShift(BinaryOperator):
-    pass
-
-
-class RightShift(BinaryOperator):
-    pass
-
-
-class BitwiseAnd(BinaryOperator):
-    pass
-
-
-class BitwiseOr(BinaryOperator):
-    pass
-
-
-class BitwiseXor(BinaryOperator):
-    pass
-
-
-class LogicalAnd(BinaryOperator):
-    pass
-
-
-class LogicalOr(BinaryOperator):
-    pass
-
-
-class Equal(BinaryOperator):
-    pass
-
-
-class NotEqual(BinaryOperator):
-    pass
-
-
-class LessThan(BinaryOperator):
-    pass
-
-
-class LessThanOrEqual(BinaryOperator):
-    pass
-
-
-class GreaterThan(BinaryOperator):
-    pass
-
-
-class GreaterThanOrEqual(BinaryOperator):
-    pass
-
-
 def parse(tokens):
     functions = []
     while tokens:
@@ -276,7 +186,7 @@ def parse_expression(tokens, min_precedence):
             right = parse_expression(tokens, precedence[next_token[0]])
             left = Assignment(left, right)
         else:
-            bin_op = parse_binop(tokens)
+            bin_op = parse_binary_operator(tokens)
             right = parse_expression(tokens, precedence[next_token[0]] + 1)
             left = Binary(bin_op, left, right)
         next_token = peek(tokens)
@@ -305,61 +215,61 @@ def parse_constant(tokens):
 
 
 def parse_unary(tokens):
-    operator = parse_operator(tokens)
+    operator = parse_unary_operator(tokens)
     inner_exp = parse_factor(tokens)
     return Unary(operator, inner_exp)
 
 
-def parse_operator(tokens):
+def parse_unary_operator(tokens):
     op = pop(tokens)
     if op[0] == lexer.TILDE:
-        return Complement()
+        return UnaryOperator.COMPLEMENT
     elif op[0] == lexer.HYPHEN:
-        return Negate()
+        return UnaryOperator.NEGATE
     elif op[0] == lexer.LOGICAL_NOT_OP:
-        return Not()
+        return UnaryOperator.NOT
     else:
         raise SyntaxError(f"Unexpected operator: {op}")
 
 
-def parse_binop(tokens):
+def parse_binary_operator(tokens):
     op = pop(tokens)
     if op[0] == lexer.HYPHEN:
-        return Subtract()
+        return BinaryOperator.SUBTRACT
     elif op[0] == lexer.PLUS_SIGN:
-        return Add()
+        return BinaryOperator.ADD
     elif op[0] == lexer.SLASH:
-        return Divide()
+        return BinaryOperator.DIVIDE
     elif op[0] == lexer.PERCENT_SIGN:
-        return Remainder()
+        return BinaryOperator.REMAINDER
     elif op[0] == lexer.ASTERISK:
-        return Multiply()
+        return BinaryOperator.MULTIPLY
     elif op[0] == lexer.LEFT_SHIFT_OP:
-        return LeftShift()
+        return BinaryOperator.LEFTSHIFT
     elif op[0] == lexer.RIGHT_SHIFT_OP:
-        return RightShift()
+        return BinaryOperator.RIGHTSHIFT
     elif op[0] == lexer.BITWISE_AND_OP:
-        return BitwiseAnd()
+        return BinaryOperator.BITWISE_AND
     elif op[0] == lexer.BITWISE_XOR_OP:
-        return BitwiseXor()
+        return BinaryOperator.BITWISE_XOR
     elif op[0] == lexer.BITWISE_OR_OP:
-        return BitwiseOr()
+        return BinaryOperator.BITWISE_OR
     elif op[0] == lexer.LOGICAL_AND_OP:
-        return LogicalAnd()
+        return BinaryOperator.LOGICAL_AND
     elif op[0] == lexer.LOGICAL_OR_OP:
-        return LogicalOr()
+        return BinaryOperator.LOGICAL_OR
     elif op[0] == lexer.EQUAL_TO_OP:
-        return Equal()
+        return BinaryOperator.EQUAL_TO
     elif op[0] == lexer.NOT_EQUAL_TO_OP:
-        return NotEqual()
+        return BinaryOperator.NOT_EQUAL_TO
     elif op[0] == lexer.LESS_THAN_OP:
-        return LessThan()
+        return BinaryOperator.LESS_THAN
     elif op[0] == lexer.LESS_THAN_OR_EQUAL_TO_OP:
-        return LessThanOrEqual()
+        return BinaryOperator.LESS_THAN_OR_EQUAL
     elif op[0] == lexer.GREATER_THAN_OP:
-        return GreaterThan()
+        return BinaryOperator.GREATER_THAN
     elif op[0] == lexer.GREATER_THAN_OR_EQUAL_TO_OP:
-        return GreaterThanOrEqual()
+        return BinaryOperator.GREATER_THAN_OR_EQUAL_TO
     else:
         raise SyntaxError(f"Unexpected operator: {op}")
 

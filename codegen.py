@@ -1,3 +1,4 @@
+import common
 import tacky
 from typing import List, Dict
 
@@ -440,7 +441,7 @@ def translate_return(_return: tacky.Return) -> List[AssemblyInstruction]:
 
 
 def translate_unary(unary: tacky.Unary) -> List[AssemblyInstruction]:
-    if isinstance(unary.operator, tacky.Not):
+    if unary.operator == common.UnaryOperator.NOT:
         src_value = translate_value(unary.src)
         dst_value = translate_value(unary.dst)
         return [Cmp(Imm(0), src_value), Mov(Imm(0), dst_value), SetCC(E(), dst_value)]
@@ -457,21 +458,21 @@ def translate_binary(binary: tacky.Binary) -> List[AssemblyInstruction]:
     dst_value = translate_value(binary.dst)
     instructions = []
 
-    if isinstance(binary.operator, tacky.Divide):
+    if binary.operator == common.BinaryOperator.DIVIDE:
         instructions.extend([
             Mov(src1_value, Register('eax')),
             Cdq(),
             Idiv(src2_value),
             Mov(Register('eax'), dst_value)
         ])
-    elif isinstance(binary.operator, tacky.Remainder):
+    elif binary.operator == common.BinaryOperator.REMAINDER:
         instructions.extend([
             Mov(src1_value, Register('eax')),
             Cdq(),
             Idiv(src2_value),
             Mov(Register('edx'), dst_value)
         ])
-    elif isinstance(binary.operator, tacky.RelationalOperator):
+    elif binary.operator in common.relational_ops:
         cond_code = translate_relational_operator(binary.operator)
         instructions.extend([
             Cmp(src2_value, src1_value),
@@ -520,48 +521,48 @@ def translate_value(value: tacky.Value) -> Operand:
         raise SyntaxError(f'Unexpected value type: {type(value)}')
 
 
-def translate_operator(operator: tacky.UnaryOperator) -> UnaryOperator:
-    if isinstance(operator, tacky.Negate):
+def translate_operator(operator: common.UnaryOperator) -> UnaryOperator:
+    if operator == common.UnaryOperator.NEGATE:
         return Neg()
-    elif isinstance(operator, tacky.Complement):
+    elif operator == common.UnaryOperator.COMPLEMENT:
         return Not()
     else:
         raise SyntaxError(f'Unexpected operator type: {type(operator)}')
 
 
-def translate_binary_operator(binary_operator: tacky.BinaryOperator) -> BinaryOperator:
-    if isinstance(binary_operator, tacky.Add):
+def translate_binary_operator(binary_operator: common.BinaryOperator) -> BinaryOperator:
+    if binary_operator == common.BinaryOperator.ADD:
         return Add()
-    elif isinstance(binary_operator, tacky.Subtract):
+    elif binary_operator == common.BinaryOperator.SUBTRACT:
         return Sub()
-    elif isinstance(binary_operator, tacky.Multiply):
+    elif binary_operator == common.BinaryOperator.MULTIPLY:
         return Mult()
-    elif isinstance(binary_operator, tacky.LeftShift):
+    elif binary_operator == common.BinaryOperator.LEFTSHIFT:
         return ShiftLeft()
-    elif isinstance(binary_operator, tacky.RightShift):
+    elif binary_operator == common.BinaryOperator.RIGHTSHIFT:
         return ShiftRight()
-    elif isinstance(binary_operator, tacky.BitwiseAnd):
+    elif binary_operator == common.BinaryOperator.BITWISE_AND:
         return BitwiseAnd()
-    elif isinstance(binary_operator, tacky.BitwiseOr):
+    elif binary_operator == common.BinaryOperator.BITWISE_OR:
         return BitwiseOr()
-    elif isinstance(binary_operator, tacky.BitwiseXor):
+    elif binary_operator == common.BinaryOperator.BITWISE_XOR:
         return BitwiseXor()
     else:
         raise SyntaxError(f'Unexpected binary operator type: {type(binary_operator)}')
 
 
-def translate_relational_operator(relational_operator: tacky.RelationalOperator) -> ConditionCode:
-    if isinstance(relational_operator, tacky.Equal):
+def translate_relational_operator(relational_operator: common.BinaryOperator) -> ConditionCode:
+    if relational_operator == common.BinaryOperator.EQUAL_TO:
         return E()
-    elif isinstance(relational_operator, tacky.NotEqual):
+    elif relational_operator == common.BinaryOperator.NOT_EQUAL_TO:
         return NE()
-    elif isinstance(relational_operator, tacky.GreaterThan):
+    elif relational_operator == common.BinaryOperator.GREATER_THAN:
         return G()
-    elif isinstance(relational_operator, tacky.GreaterThanOrEqual):
+    elif relational_operator == common.BinaryOperator.GREATER_THAN_OR_EQUAL_TO:
         return GE()
-    elif isinstance(relational_operator, tacky.LessThan):
+    elif relational_operator == common.BinaryOperator.LESS_THAN:
         return L()
-    elif isinstance(relational_operator, tacky.LessThanOrEqual):
+    elif relational_operator == common.BinaryOperator.LESS_THAN_OR_EQUAL:
         return LE()
     else:
         raise SyntaxError(f'Unexpected relational operator type: {type(relational_operator)}')
