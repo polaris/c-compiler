@@ -1,3 +1,4 @@
+import common
 import tacky
 from typing import List, Dict
 
@@ -120,7 +121,7 @@ class AssemblyFunction(AssemblyNode):
                 i += 2
             elif (
                 isinstance(inst, Binary) and
-                isinstance(inst.binary_operator, (Add, Sub)) and
+                inst.binary_operator in {common.BinaryOperator.ADD, common.BinaryOperator.SUBTRACT} and
                 isinstance(inst.src, Stack) and
                 isinstance(inst.dst, Stack)
             ):
@@ -131,12 +132,12 @@ class AssemblyFunction(AssemblyNode):
                 i += 2
             elif (
                 isinstance(inst, Binary) and
-                isinstance(inst.binary_operator, Mult) and
+                inst.binary_operator == common.BinaryOperator.MULTIPLY and
                 isinstance(inst.dst, Stack)
             ):
                 self.instructions[i:i+1] = [
                     Mov(inst.dst, Register("r11d")),
-                    Binary(Mult(), inst.src, Register("r11d")),
+                    Binary(inst.binary_operator, inst.src, Register("r11d")),
                     Mov(Register("r11d"), inst.dst)
                 ]
                 i += 3
@@ -174,22 +175,22 @@ class Mov(AssemblyInstruction):
 
 
 class Unary(AssemblyInstruction):
-    def __init__(self, operator: 'UnaryOperator', operand: 'Operand'):
+    def __init__(self, operator: 'common.UnaryOperator', operand: 'Operand'):
         self.operator = operator
         self.operand = operand
 
     def emit(self) -> str:
-        return f"\t{self.operator.emit()}\t{self.operand.emit()}\n"
+        return f"\t{translate_operator(self.operator)}\t{self.operand.emit()}\n"
 
 
 class Binary(AssemblyInstruction):
-    def __init__(self, binary_operator: 'BinaryOperator', src: 'Operand', dst: 'Operand'):
+    def __init__(self, binary_operator: 'common.BinaryOperator', src: 'Operand', dst: 'Operand'):
         self.binary_operator = binary_operator
         self.src = src
         self.dst = dst
 
     def emit(self) -> str:
-        return f"\t{self.binary_operator.emit()}\t{self.src.emit()}, {self.dst.emit()}\n"
+        return f"\t{translate_binary_operator(self.binary_operator)}\t{self.src.emit()}, {self.dst.emit()}\n"
 
 
 class Cmp(AssemblyInstruction):
@@ -223,21 +224,21 @@ class Jmp(AssemblyInstruction):
 
 
 class JmpCC(AssemblyInstruction):
-    def __init__(self, cond_code: 'ConditionCode', identifier: str):
+    def __init__(self, cond_code: str, identifier: str):
         self.cond_code = cond_code
         self.identifier = identifier
 
     def emit(self) -> str:
-        return f"\tj{self.cond_code.emit()}\t.L{self.identifier}\n"
+        return f"\tj{self.cond_code}\t.L{self.identifier}\n"
 
 
 class SetCC(AssemblyInstruction):
-    def __init__(self, cond_code: 'ConditionCode', operand: 'Operand'):
+    def __init__(self, cond_code: str, operand: 'Operand'):
         self.cond_code = cond_code
         self.operand = operand
 
     def emit(self) -> str:
-        return f"\tset{self.cond_code.emit()}\t{self.operand.emit()}\n"
+        return f"\tset{self.cond_code}\t{self.operand.emit()}\n"
 
 
 class Label(AssemblyInstruction):
@@ -259,66 +260,6 @@ class AllocStack(AssemblyInstruction):
 class Ret(AssemblyInstruction):
     def emit(self) -> str:
         return "\tmovq\t%rbp, %rsp\n\tpopq\t%rbp\n\tret\n"
-
-
-class UnaryOperator(AssemblyNode):
-    def emit(self):
-        pass
-
-
-class Neg(UnaryOperator):
-    def emit(self) -> str:
-        return "negl"
-
-
-class Not(UnaryOperator):
-    def emit(self) -> str:
-        return "notl"
-
-
-class BinaryOperator(AssemblyNode):
-    def emit(self):
-        pass
-
-
-class Add(BinaryOperator):
-    def emit(self) -> str:
-        return "addl"
-
-
-class Sub(BinaryOperator):
-    def emit(self) -> str:
-        return "subl"
-
-
-class Mult(BinaryOperator):
-    def emit(self) -> str:
-        return "imull"
-
-
-class ShiftLeft(BinaryOperator):
-    def emit(self) -> str:
-        return "shll"
-
-
-class ShiftRight(BinaryOperator):
-    def emit(self) -> str:
-        return "shrl"
-
-
-class BitwiseAnd(BinaryOperator):
-    def emit(self) -> str:
-        return "andl"
-
-
-class BitwiseOr(BinaryOperator):
-    def emit(self) -> str:
-        return "orl"
-
-
-class BitwiseXor(BinaryOperator):
-    def emit(self) -> str:
-        return "xorl"
 
 
 class Operand(AssemblyNode):
@@ -356,41 +297,6 @@ class Stack(Operand):
 
     def emit(self) -> str:
         return f"{self.position}(%rbp)"
-
-
-class ConditionCode(AssemblyNode):
-    def emit(self):
-        pass
-
-
-class E(ConditionCode):
-    def emit(self) -> str:
-        return "e"
-
-
-class NE(ConditionCode):
-    def emit(self) -> str:
-        return "ne"
-
-
-class G(ConditionCode):
-    def emit(self) -> str:
-        return "g"
-
-
-class GE(ConditionCode):
-    def emit(self) -> str:
-        return "ge"
-
-
-class L(ConditionCode):
-    def emit(self) -> str:
-        return "l"
-
-
-class LE(ConditionCode):
-    def emit(self) -> str:
-        return "le"
 
 
 def translate_program(program: tacky.Program) -> AssemblyProgram:
@@ -436,19 +342,22 @@ def translate_instruction(instruction: tacky.Instruction) -> List[AssemblyInstru
 
 def translate_return(_return: tacky.Return) -> List[AssemblyInstruction]:
     value = translate_value(_return.value)
-    return [Mov(value, Register('eax')), Ret()]
+    return [Mov(value, Register('eax')),
+            Ret()]
 
 
 def translate_unary(unary: tacky.Unary) -> List[AssemblyInstruction]:
-    if isinstance(unary.operator, tacky.Not):
+    if unary.operator == common.UnaryOperator.NOT:
         src_value = translate_value(unary.src)
         dst_value = translate_value(unary.dst)
-        return [Cmp(Imm(0), src_value), Mov(Imm(0), dst_value), SetCC(E(), dst_value)]
+        return [Cmp(Imm(0), src_value),
+                Mov(Imm(0), dst_value),
+                SetCC(translate_relational_operator(common.BinaryOperator.EQUAL_TO), dst_value)]
     else:
         src_value = translate_value(unary.src)
         dst_value = translate_value(unary.dst)
-        op = translate_operator(unary.operator)
-        return [Mov(src_value, dst_value), Unary(op, dst_value)]
+        return [Mov(src_value, dst_value),
+                Unary(unary.operator, dst_value)]
 
 
 def translate_binary(binary: tacky.Binary) -> List[AssemblyInstruction]:
@@ -457,21 +366,21 @@ def translate_binary(binary: tacky.Binary) -> List[AssemblyInstruction]:
     dst_value = translate_value(binary.dst)
     instructions = []
 
-    if isinstance(binary.operator, tacky.Divide):
+    if binary.operator == common.BinaryOperator.DIVIDE:
         instructions.extend([
             Mov(src1_value, Register('eax')),
             Cdq(),
             Idiv(src2_value),
             Mov(Register('eax'), dst_value)
         ])
-    elif isinstance(binary.operator, tacky.Remainder):
+    elif binary.operator == common.BinaryOperator.REMAINDER:
         instructions.extend([
             Mov(src1_value, Register('eax')),
             Cdq(),
             Idiv(src2_value),
             Mov(Register('edx'), dst_value)
         ])
-    elif isinstance(binary.operator, tacky.RelationalOperator):
+    elif binary.operator in common.relational_ops:
         cond_code = translate_relational_operator(binary.operator)
         instructions.extend([
             Cmp(src2_value, src1_value),
@@ -479,10 +388,9 @@ def translate_binary(binary: tacky.Binary) -> List[AssemblyInstruction]:
             SetCC(cond_code, dst_value),
         ])
     else:
-        op = translate_binary_operator(binary.operator)
         instructions.extend([
             Mov(src1_value, dst_value),
-            Binary(op, src2_value, dst_value)
+            Binary(binary.operator, src2_value, dst_value)
         ])
     return instructions
 
@@ -493,12 +401,12 @@ def translate_jump(jump: tacky.Jump) -> List[AssemblyInstruction]:
 
 def translate_jump_if_zero(jump: tacky.JumpIfZero) -> List[AssemblyInstruction]:
     value = translate_value(jump.condition)
-    return [Cmp(Imm(0), value), JmpCC(E(), jump.target)]
+    return [Cmp(Imm(0), value), JmpCC(translate_relational_operator(common.BinaryOperator.EQUAL_TO), jump.target)]
 
 
 def translate_jump_if_not_zero(jump: tacky.JumpIfNotZero) -> List[AssemblyInstruction]:
     value = translate_value(jump.condition)
-    return [Cmp(Imm(0), value), JmpCC(NE(), jump.target)]
+    return [Cmp(Imm(0), value), JmpCC(translate_relational_operator(common.BinaryOperator.NOT_EQUAL_TO), jump.target)]
 
 
 def translate_copy(copy: tacky.Copy) -> List[AssemblyInstruction]:
@@ -520,49 +428,49 @@ def translate_value(value: tacky.Value) -> Operand:
         raise SyntaxError(f'Unexpected value type: {type(value)}')
 
 
-def translate_operator(operator: tacky.UnaryOperator) -> UnaryOperator:
-    if isinstance(operator, tacky.Negate):
-        return Neg()
-    elif isinstance(operator, tacky.Complement):
-        return Not()
+def translate_operator(operator: common.UnaryOperator) -> str:
+    if operator == common.UnaryOperator.NEGATE:
+        return "negl"
+    elif operator == common.UnaryOperator.COMPLEMENT:
+        return "notl"
     else:
         raise SyntaxError(f'Unexpected operator type: {type(operator)}')
 
 
-def translate_binary_operator(binary_operator: tacky.BinaryOperator) -> BinaryOperator:
-    if isinstance(binary_operator, tacky.Add):
-        return Add()
-    elif isinstance(binary_operator, tacky.Subtract):
-        return Sub()
-    elif isinstance(binary_operator, tacky.Multiply):
-        return Mult()
-    elif isinstance(binary_operator, tacky.LeftShift):
-        return ShiftLeft()
-    elif isinstance(binary_operator, tacky.RightShift):
-        return ShiftRight()
-    elif isinstance(binary_operator, tacky.BitwiseAnd):
-        return BitwiseAnd()
-    elif isinstance(binary_operator, tacky.BitwiseOr):
-        return BitwiseOr()
-    elif isinstance(binary_operator, tacky.BitwiseXor):
-        return BitwiseXor()
+def translate_binary_operator(binary_operator: common.BinaryOperator) -> str:
+    if binary_operator == common.BinaryOperator.ADD:
+        return "addl"
+    elif binary_operator == common.BinaryOperator.SUBTRACT:
+        return "subl"
+    elif binary_operator == common.BinaryOperator.MULTIPLY:
+        return "imull"
+    elif binary_operator == common.BinaryOperator.LEFTSHIFT:
+        return "shll"
+    elif binary_operator == common.BinaryOperator.RIGHTSHIFT:
+        return "shrl"
+    elif binary_operator == common.BinaryOperator.BITWISE_AND:
+        return "andl"
+    elif binary_operator == common.BinaryOperator.BITWISE_OR:
+        return "orl"
+    elif binary_operator == common.BinaryOperator.BITWISE_XOR:
+        return "xorl"
     else:
         raise SyntaxError(f'Unexpected binary operator type: {type(binary_operator)}')
 
 
-def translate_relational_operator(relational_operator: tacky.RelationalOperator) -> ConditionCode:
-    if isinstance(relational_operator, tacky.Equal):
-        return E()
-    elif isinstance(relational_operator, tacky.NotEqual):
-        return NE()
-    elif isinstance(relational_operator, tacky.GreaterThan):
-        return G()
-    elif isinstance(relational_operator, tacky.GreaterThanOrEqual):
-        return GE()
-    elif isinstance(relational_operator, tacky.LessThan):
-        return L()
-    elif isinstance(relational_operator, tacky.LessThanOrEqual):
-        return LE()
+def translate_relational_operator(relational_operator: common.BinaryOperator) -> str:
+    if relational_operator == common.BinaryOperator.EQUAL_TO:
+        return "e"
+    elif relational_operator == common.BinaryOperator.NOT_EQUAL_TO:
+        return "ne"
+    elif relational_operator == common.BinaryOperator.GREATER_THAN:
+        return "g"
+    elif relational_operator == common.BinaryOperator.GREATER_THAN_OR_EQUAL_TO:
+        return "ge"
+    elif relational_operator == common.BinaryOperator.LESS_THAN:
+        return "l"
+    elif relational_operator == common.BinaryOperator.LESS_THAN_OR_EQUAL:
+        return "le"
     else:
         raise SyntaxError(f'Unexpected relational operator type: {type(relational_operator)}')
 
