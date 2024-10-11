@@ -5,11 +5,11 @@ from typing import List, Optional
 from common import UnaryOperator, BinaryOperator
 
 precedence = {
-    lexer.ASTERISK: 50,
-    lexer.SLASH: 50,
-    lexer.PERCENT_SIGN: 50,
-    lexer.PLUS_SIGN: 45,
-    lexer.HYPHEN: 45,
+    lexer.MULTIPLICATION_OP: 50,
+    lexer.DIVISION_OP: 50,
+    lexer.MODULO_OP: 50,
+    lexer.ADDITION_OP: 45,
+    lexer.SUBTRACTION_OP: 45,
     lexer.LEFT_SHIFT_OP: 40,
     lexer.RIGHT_SHIFT_OP: 40,
     lexer.LESS_THAN_OP: 38,
@@ -27,7 +27,7 @@ precedence = {
 }
 
 
-bin_ops = {lexer.PLUS_SIGN, lexer.HYPHEN, lexer.PERCENT_SIGN, lexer.SLASH, lexer.ASTERISK, lexer.LEFT_SHIFT_OP,
+bin_ops = {lexer.ADDITION_OP, lexer.SUBTRACTION_OP, lexer.MODULO_OP, lexer.DIVISION_OP, lexer.MULTIPLICATION_OP, lexer.LEFT_SHIFT_OP,
            lexer.RIGHT_SHIFT_OP, lexer.BITWISE_AND_OP, lexer.BITWISE_XOR_OP, lexer.BITWISE_OR_OP, lexer.LESS_THAN_OP,
            lexer.LESS_THAN_OR_EQUAL_TO_OP, lexer.GREATER_THAN_OP, lexer.GREATER_THAN_OR_EQUAL_TO_OP, lexer.EQUAL_TO_OP,
            lexer.NOT_EQUAL_TO_OP, lexer.LOGICAL_AND_OP, lexer.LOGICAL_OR_OP, lexer.ASSIGNMENT_OP}
@@ -197,7 +197,7 @@ def parse_factor(tokens):
     next_token = peek(tokens)
     if next_token[0] == lexer.CONSTANT:
         return parse_constant(tokens)
-    elif next_token[0] in {lexer.TILDE, lexer.HYPHEN, lexer.LOGICAL_NOT_OP}:
+    elif next_token[0] in {lexer.BITWISE_COMPLEMENT_OP, lexer.SUBTRACTION_OP, lexer.LOGICAL_NOT_OP}:
         return parse_unary(tokens)
     elif next_token[0] == lexer.OPEN_PAREN:
         pop(tokens)  # Consume '('
@@ -222,9 +222,9 @@ def parse_unary(tokens):
 
 def parse_unary_operator(tokens):
     op = pop(tokens)
-    if op[0] == lexer.TILDE:
+    if op[0] == lexer.BITWISE_COMPLEMENT_OP:
         return UnaryOperator.COMPLEMENT
-    elif op[0] == lexer.HYPHEN:
+    elif op[0] == lexer.SUBTRACTION_OP:
         return UnaryOperator.NEGATE
     elif op[0] == lexer.LOGICAL_NOT_OP:
         return UnaryOperator.NOT
@@ -234,15 +234,15 @@ def parse_unary_operator(tokens):
 
 def parse_binary_operator(tokens):
     op = pop(tokens)
-    if op[0] == lexer.HYPHEN:
+    if op[0] == lexer.SUBTRACTION_OP:
         return BinaryOperator.SUBTRACT
-    elif op[0] == lexer.PLUS_SIGN:
+    elif op[0] == lexer.ADDITION_OP:
         return BinaryOperator.ADD
-    elif op[0] == lexer.SLASH:
+    elif op[0] == lexer.DIVISION_OP:
         return BinaryOperator.DIVIDE
-    elif op[0] == lexer.PERCENT_SIGN:
+    elif op[0] == lexer.MODULO_OP:
         return BinaryOperator.REMAINDER
-    elif op[0] == lexer.ASTERISK:
+    elif op[0] == lexer.MULTIPLICATION_OP:
         return BinaryOperator.MULTIPLY
     elif op[0] == lexer.LEFT_SHIFT_OP:
         return BinaryOperator.LEFTSHIFT
