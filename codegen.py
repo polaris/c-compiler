@@ -113,7 +113,7 @@ class AssemblyFunction(AssemblyNode):
                     Mov(Register("r10d"), inst.dst)
                 ]
                 i += 2
-            elif isinstance(inst, Idiv) and isinstance(inst.src, Stack):
+            elif isinstance(inst, Idiv) and (isinstance(inst.src, Stack) or isinstance(inst.src, Imm)):
                 self.instructions[i:i+1] = [
                     Mov(inst.src, Register("r10d")),
                     Idiv(Register("r10d"))
@@ -444,9 +444,9 @@ def translate_binary_operator(binary_operator: common.BinaryOperator) -> str:
         return "subl"
     elif binary_operator == common.BinaryOperator.MULTIPLY:
         return "imull"
-    elif binary_operator == common.BinaryOperator.LEFTSHIFT:
+    elif binary_operator == common.BinaryOperator.BITWISE_LEFTSHIFT:
         return "shll"
-    elif binary_operator == common.BinaryOperator.RIGHTSHIFT:
+    elif binary_operator == common.BinaryOperator.BITWISE_RIGHTSHIFT:
         return "shrl"
     elif binary_operator == common.BinaryOperator.BITWISE_AND:
         return "andl"

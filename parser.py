@@ -10,8 +10,8 @@ precedence = {
     lexer.MODULO_OP: 50,
     lexer.ADDITION_OP: 45,
     lexer.SUBTRACTION_OP: 45,
-    lexer.LEFT_SHIFT_OP: 40,
-    lexer.RIGHT_SHIFT_OP: 40,
+    lexer.BITWISE_LEFT_SHIFT_OP: 40,
+    lexer.BITWISE_RIGHT_SHIFT_OP: 40,
     lexer.LESS_THAN_OP: 38,
     lexer.LESS_THAN_OR_EQUAL_TO_OP: 38,
     lexer.GREATER_THAN_OP: 38,
@@ -23,14 +23,66 @@ precedence = {
     lexer.BITWISE_OR_OP: 20,
     lexer.LOGICAL_AND_OP: 15,
     lexer.LOGICAL_OR_OP: 10,
-    lexer.ASSIGNMENT_OP: 1
+    lexer.ASSIGNMENT_OP: 1,
+    lexer.ADDITION_ASSIGNMENT_OP: 1,
+    lexer.SUBTRACTION_ASSIGNMENT_OP: 1,
+    lexer.MULTIPLICATION_ASSIGNMENT_OP: 1,
+    lexer.DIVISION_ASSIGNMENT_OP: 1,
+    lexer.REMAINDER_ASSIGNMENT_OP: 1,
+    lexer.BITWISE_OR_ASSIGNMENT_OP: 1,
+    lexer.BITWISE_AND_ASSIGNMENT_OP: 1,
+    lexer.BITWISE_XOR_ASSIGNMENT_OP: 1,
+    lexer.BITWISE_LEFT_SHIFT_ASSIGNMENT_OP: 1,
+    lexer.BITWISE_RIGHT_SHIFT_ASSIGNMENT_OP: 1
 }
 
 
-bin_ops = {lexer.ADDITION_OP, lexer.SUBTRACTION_OP, lexer.MODULO_OP, lexer.DIVISION_OP, lexer.MULTIPLICATION_OP, lexer.LEFT_SHIFT_OP,
-           lexer.RIGHT_SHIFT_OP, lexer.BITWISE_AND_OP, lexer.BITWISE_XOR_OP, lexer.BITWISE_OR_OP, lexer.LESS_THAN_OP,
-           lexer.LESS_THAN_OR_EQUAL_TO_OP, lexer.GREATER_THAN_OP, lexer.GREATER_THAN_OR_EQUAL_TO_OP, lexer.EQUAL_TO_OP,
-           lexer.NOT_EQUAL_TO_OP, lexer.LOGICAL_AND_OP, lexer.LOGICAL_OR_OP, lexer.ASSIGNMENT_OP}
+binary_ops = {
+    lexer.ADDITION_OP,
+    lexer.SUBTRACTION_OP,
+    lexer.MODULO_OP,
+    lexer.DIVISION_OP,
+    lexer.MULTIPLICATION_OP,
+    lexer.BITWISE_LEFT_SHIFT_OP,
+    lexer.BITWISE_RIGHT_SHIFT_OP,
+    lexer.BITWISE_AND_OP,
+    lexer.BITWISE_XOR_OP,
+    lexer.BITWISE_OR_OP,
+    lexer.LESS_THAN_OP,
+    lexer.LESS_THAN_OR_EQUAL_TO_OP,
+    lexer.GREATER_THAN_OP,
+    lexer.GREATER_THAN_OR_EQUAL_TO_OP,
+    lexer.EQUAL_TO_OP,
+    lexer.NOT_EQUAL_TO_OP,
+    lexer.LOGICAL_AND_OP,
+    lexer.LOGICAL_OR_OP,
+    lexer.ASSIGNMENT_OP,
+    lexer.ADDITION_ASSIGNMENT_OP,
+    lexer.SUBTRACTION_ASSIGNMENT_OP,
+    lexer.MULTIPLICATION_ASSIGNMENT_OP,
+    lexer.DIVISION_ASSIGNMENT_OP,
+    lexer.REMAINDER_ASSIGNMENT_OP,
+    lexer.BITWISE_OR_ASSIGNMENT_OP,
+    lexer.BITWISE_AND_ASSIGNMENT_OP,
+    lexer.BITWISE_XOR_ASSIGNMENT_OP,
+    lexer.BITWISE_LEFT_SHIFT_ASSIGNMENT_OP,
+    lexer.BITWISE_RIGHT_SHIFT_ASSIGNMENT_OP
+}
+
+
+assignment_ops = {
+    lexer.ASSIGNMENT_OP,
+    lexer.ADDITION_ASSIGNMENT_OP,
+    lexer.SUBTRACTION_ASSIGNMENT_OP,
+    lexer.MULTIPLICATION_ASSIGNMENT_OP,
+    lexer.DIVISION_ASSIGNMENT_OP,
+    lexer.REMAINDER_ASSIGNMENT_OP,
+    lexer.BITWISE_OR_ASSIGNMENT_OP,
+    lexer.BITWISE_AND_ASSIGNMENT_OP,
+    lexer.BITWISE_XOR_ASSIGNMENT_OP,
+    lexer.BITWISE_LEFT_SHIFT_ASSIGNMENT_OP,
+    lexer.BITWISE_RIGHT_SHIFT_ASSIGNMENT_OP
+}
 
 
 class Node:
@@ -180,10 +232,12 @@ def parse_return(tokens):
 def parse_expression(tokens, min_precedence):
     left = parse_factor(tokens)
     next_token = peek(tokens)
-    while next_token[0] in bin_ops and precedence[next_token[0]] >= min_precedence:
-        if next_token[0] == lexer.ASSIGNMENT_OP:
+    while next_token[0] in binary_ops and precedence[next_token[0]] >= min_precedence:
+        if next_token[0] in assignment_ops:
             pop(tokens)
             right = parse_expression(tokens, precedence[next_token[0]])
+            if next_token[0] != lexer.ASSIGNMENT_OP:
+                right = Binary(parse_assignment_op(next_token[0]), left, right)
             left = Assignment(left, right)
         else:
             bin_op = parse_binary_operator(tokens)
@@ -191,6 +245,30 @@ def parse_expression(tokens, min_precedence):
             left = Binary(bin_op, left, right)
         next_token = peek(tokens)
     return left
+
+
+def parse_assignment_op(op):
+    match op:
+        case lexer.ADDITION_ASSIGNMENT_OP:
+            return BinaryOperator.ADD
+        case lexer.SUBTRACTION_ASSIGNMENT_OP:
+            return BinaryOperator.SUBTRACT
+        case lexer.MULTIPLICATION_ASSIGNMENT_OP:
+            return BinaryOperator.MULTIPLY
+        case lexer.DIVISION_ASSIGNMENT_OP:
+            return BinaryOperator.DIVIDE
+        case lexer.REMAINDER_ASSIGNMENT_OP:
+            return BinaryOperator.REMAINDER
+        case lexer.BITWISE_OR_ASSIGNMENT_OP:
+            return BinaryOperator.BITWISE_OR
+        case lexer.BITWISE_AND_ASSIGNMENT_OP:
+            return BinaryOperator.BITWISE_AND
+        case lexer.BITWISE_XOR_ASSIGNMENT_OP:
+            return BinaryOperator.BITWISE_XOR
+        case lexer.BITWISE_LEFT_SHIFT_ASSIGNMENT_OP:
+            return BinaryOperator.BITWISE_LEFTSHIFT
+        case lexer.BITWISE_RIGHT_SHIFT_ASSIGNMENT_OP:
+            return BinaryOperator.BITWISE_RIGHTSHIFT
 
 
 def parse_factor(tokens):
@@ -244,10 +322,10 @@ def parse_binary_operator(tokens):
         return BinaryOperator.REMAINDER
     elif op[0] == lexer.MULTIPLICATION_OP:
         return BinaryOperator.MULTIPLY
-    elif op[0] == lexer.LEFT_SHIFT_OP:
-        return BinaryOperator.LEFTSHIFT
-    elif op[0] == lexer.RIGHT_SHIFT_OP:
-        return BinaryOperator.RIGHTSHIFT
+    elif op[0] == lexer.BITWISE_LEFT_SHIFT_OP:
+        return BinaryOperator.BITWISE_LEFTSHIFT
+    elif op[0] == lexer.BITWISE_RIGHT_SHIFT_OP:
+        return BinaryOperator.BITWISE_RIGHTSHIFT
     elif op[0] == lexer.BITWISE_AND_OP:
         return BinaryOperator.BITWISE_AND
     elif op[0] == lexer.BITWISE_XOR_OP:
