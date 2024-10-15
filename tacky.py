@@ -136,10 +136,35 @@ class Translator:
         if isinstance(exp, parser.Constant):
             return Constant(exp.value)
         elif isinstance(exp, parser.Unary):
-            src = self.emit_tacky(exp.inner, instructions)
-            dst = Variable(utils.make_temporary())
-            instructions.append(Unary(exp.operator, src, dst))
-            return dst
+            if exp.operator == common.UnaryOperator.PRE_INCREMENT:
+                src = self.emit_tacky(exp.inner, instructions)
+                dst = Variable(utils.make_temporary())
+                instructions.append(Binary(common.BinaryOperator.ADD, src, Constant(1), src))
+                instructions.append(Copy(src, dst))
+                return dst
+            elif exp.operator == common.UnaryOperator.PRE_DECREMENT:
+                src = self.emit_tacky(exp.inner, instructions)
+                dst = Variable(utils.make_temporary())
+                instructions.append(Binary(common.BinaryOperator.SUBTRACT, src, Constant(1), src))
+                instructions.append(Copy(src, dst))
+                return dst
+            elif exp.operator == common.UnaryOperator.POST_INCREMENT:
+                src = self.emit_tacky(exp.inner, instructions)
+                dst = Variable(utils.make_temporary())
+                instructions.append(Copy(src, dst))
+                instructions.append(Binary(common.BinaryOperator.ADD, src, Constant(1), src))
+                return dst
+            elif exp.operator == common.UnaryOperator.POST_DECREMENT:
+                src = self.emit_tacky(exp.inner, instructions)
+                dst = Variable(utils.make_temporary())
+                instructions.append(Copy(src, dst))
+                instructions.append(Binary(common.BinaryOperator.SUBTRACT, src, Constant(1), src))
+                return dst
+            else:
+                src = self.emit_tacky(exp.inner, instructions)
+                dst = Variable(utils.make_temporary())
+                instructions.append(Unary(exp.operator, src, dst))
+                return dst
         elif isinstance(exp, parser.Binary):
             if exp.operator == common.BinaryOperator.LOGICAL_AND:
                 result = Variable(utils.make_temporary())

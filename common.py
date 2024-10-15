@@ -5,6 +5,10 @@ class UnaryOperator(Enum):
     NEGATE = auto()
     COMPLEMENT = auto()
     NOT = auto()
+    PRE_INCREMENT = auto()
+    PRE_DECREMENT = auto()
+    POST_INCREMENT = auto()
+    POST_DECREMENT = auto()
 
 
 class BinaryOperator(Enum):

@@ -56,6 +56,9 @@ def resolve_exp(exp: parser.Expression, variable_map: Dict):
         else:
             raise SyntaxError("Undeclared variable!")
     elif isinstance(exp, parser.Unary):
+        if exp.operator in {parser.UnaryOperator.PRE_INCREMENT, parser.UnaryOperator.PRE_DECREMENT, parser.UnaryOperator.POST_INCREMENT, parser.UnaryOperator.POST_DECREMENT}:
+            if not isinstance(exp.inner, parser.Var):
+                raise SyntaxError("Invalid lvalue!")
         return parser.Unary(exp.operator, resolve_exp(exp.inner, variable_map))
     elif isinstance(exp, parser.Binary):
         return parser.Binary(exp.operator, resolve_exp(exp.left, variable_map), resolve_exp(exp.right, variable_map))

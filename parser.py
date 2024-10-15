@@ -230,7 +230,7 @@ def parse_return(tokens):
 
 
 def parse_expression(tokens, min_precedence):
-    left = parse_factor(tokens)
+    left = parse_prefix_expression(tokens)
     next_token = peek(tokens)
     while next_token[0] in binary_ops and precedence[next_token[0]] >= min_precedence:
         if next_token[0] in assignment_ops:
@@ -244,7 +244,7 @@ def parse_expression(tokens, min_precedence):
             right = parse_expression(tokens, precedence[next_token[0]] + 1)
             left = Binary(bin_op, left, right)
         next_token = peek(tokens)
-    return left
+    return parse_postfix(tokens, left)
 
 
 def parse_assignment_op(op):
@@ -271,12 +271,18 @@ def parse_assignment_op(op):
             return BinaryOperator.BITWISE_RIGHTSHIFT
 
 
+def parse_prefix_expression(tokens):
+    next_token = peek(tokens)
+    if next_token[0] in {lexer.BITWISE_COMPLEMENT_OP, lexer.SUBTRACTION_OP, lexer.LOGICAL_NOT_OP, lexer.INCREMENT_OP, lexer.DECREMENT_OP}:
+        return parse_prefix(tokens)
+    else:
+        return parse_postfix(tokens, parse_factor(tokens))
+
+
 def parse_factor(tokens):
     next_token = peek(tokens)
     if next_token[0] == lexer.CONSTANT:
         return parse_constant(tokens)
-    elif next_token[0] in {lexer.BITWISE_COMPLEMENT_OP, lexer.SUBTRACTION_OP, lexer.LOGICAL_NOT_OP}:
-        return parse_unary(tokens)
     elif next_token[0] == lexer.OPEN_PAREN:
         pop(tokens)  # Consume '('
         inner_exp = parse_expression(tokens, 0)
@@ -285,6 +291,24 @@ def parse_factor(tokens):
     else:
         identifier = expect(lexer.IDENTIFIER, tokens)[1]
         return Var(identifier)
+
+
+def parse_prefix(tokens):
+    operator = parse_unary_operator(tokens)
+    inner_exp = parse_prefix_expression(tokens)
+    return Unary(operator, inner_exp)
+
+
+def parse_postfix(tokens, left):
+    next_token = peek(tokens)
+    while next_token[0] in {lexer.INCREMENT_OP, lexer.DECREMENT_OP}:
+        operator = pop(tokens)[0]
+        if operator == lexer.INCREMENT_OP:
+            left = Unary(UnaryOperator.POST_INCREMENT, left)
+        elif operator == lexer.DECREMENT_OP:
+            left = Unary(UnaryOperator.POST_DECREMENT, left)
+        next_token = peek(tokens)
+    return left
 
 
 def parse_constant(tokens):
@@ -306,6 +330,10 @@ def parse_unary_operator(tokens):
         return UnaryOperator.NEGATE
     elif op[0] == lexer.LOGICAL_NOT_OP:
         return UnaryOperator.NOT
+    elif op[0] == lexer.INCREMENT_OP:
+        return UnaryOperator.PRE_INCREMENT
+    elif op[0] == lexer.DECREMENT_OP:
+        return UnaryOperator.PRE_DECREMENT
     else:
         raise SyntaxError(f"Unexpected operator: {op}")
 
