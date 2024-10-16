@@ -107,6 +107,8 @@ class Translator:
     def translate_statement(self, statement: 'parser.Statement') -> List[Instruction]:
         if isinstance(statement, parser.Return):
             return self.translate_return(statement)
+        elif isinstance(statement, parser.If):
+            return self.translate_if(statement)
         elif isinstance(statement, parser.Expression):
             instructions = []
             dst = Variable(utils.make_temporary())
@@ -131,10 +133,44 @@ class Translator:
         val = self.emit_tacky(return_stmt.exp, instructions)
         instructions.append(Return(val))
         return instructions
+    
+    def translate_if(self, if_stmt: 'parser.If') -> List[Instruction]:
+        instructions = []
+        if not if_stmt.else_:
+            end_label = self.generate_unique_label("end")
+            c = self.emit_tacky(if_stmt.condition,instructions)
+            instructions.append(JumpIfZero(c, end_label))
+            instructions.extend(self.translate_statement(if_stmt.then))
+            instructions.append(Label(end_label))
+        else:
+            else_label = self.generate_unique_label("else")
+            end_label = self.generate_unique_label("end")
+            c = self.emit_tacky(if_stmt.condition, instructions)
+            instructions.append(JumpIfZero(c, else_label))
+            instructions.extend(self.translate_statement(if_stmt.then))
+            instructions.append(Jump(end_label))
+            instructions.append(Label(else_label))
+            instructions.extend(self.translate_statement(if_stmt.else_))
+            instructions.append(Label(end_label))
+        return instructions
 
     def emit_tacky(self, exp: 'parser.Expression', instructions: List[Instruction]) -> Value:
         if isinstance(exp, parser.Constant):
             return Constant(exp.value)
+        elif isinstance(exp, parser.Conditional):
+            result = Variable(utils.make_temporary())
+            else_label = self.generate_unique_label("else")
+            end_label = self.generate_unique_label("end")
+            c = self.emit_tacky(exp.condition, instructions)
+            instructions.append(JumpIfZero(c, else_label))
+            v1 = self.emit_tacky(exp.then, instructions)
+            instructions.append(Copy(v1, result))
+            instructions.append(Jump(end_label))
+            instructions.append(Label(else_label))
+            v2 = self.emit_tacky(exp.else_, instructions)
+            instructions.append(Copy(v2, result))
+            instructions.append(Label(end_label))
+            return result
         elif isinstance(exp, parser.Unary):
             if exp.operator == common.UnaryOperator.PRE_INCREMENT:
                 src = self.emit_tacky(exp.inner, instructions)

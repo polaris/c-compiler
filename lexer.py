@@ -6,6 +6,10 @@ VOID = 'VOID'
 RETURN = 'RETURN'
 IDENTIFIER = 'IDENTIFIER'
 CONSTANT = 'CONSTANT'
+IF = 'IF'
+ELSE = 'ELSE'
+
+TERNARY_OP = 'TERNARY_OP'
 
 OPEN_PAREN = 'OPEN_PAREN'
 CLOSE_PAREN = 'CLOSE_PAREN'
@@ -66,11 +70,15 @@ token_specification = [
     (INT, r'int\b'),
     (VOID, r'void\b'),
     (RETURN, r'return\b'),
+    (IF, r'if\b'),
+    (ELSE, r'else\b'),
     (IDENTIFIER, r'[a-zA-Z]\w*\b'),
     (CONSTANT, r'\b\d+\b'),
     (COMMENT, r'//.*|/\*[\s\S]*?\*/'),
     (PRECOMPILER_DIRECTIVE, r'#.*'),
     (WHITESPACE, r'\s+'),
+    
+    (TERNARY_OP, r'\?'),
 
     (OPEN_PAREN, r'\('),
     (CLOSE_PAREN, r'\)'),

@@ -23,6 +23,7 @@ precedence = {
     lexer.BITWISE_OR_OP: 20,
     lexer.LOGICAL_AND_OP: 15,
     lexer.LOGICAL_OR_OP: 10,
+    lexer.TERNARY_OP: 3,
     lexer.ASSIGNMENT_OP: 1,
     lexer.ADDITION_ASSIGNMENT_OP: 1,
     lexer.SUBTRACTION_ASSIGNMENT_OP: 1,
@@ -66,7 +67,8 @@ binary_ops = {
     lexer.BITWISE_AND_ASSIGNMENT_OP,
     lexer.BITWISE_XOR_ASSIGNMENT_OP,
     lexer.BITWISE_LEFT_SHIFT_ASSIGNMENT_OP,
-    lexer.BITWISE_RIGHT_SHIFT_ASSIGNMENT_OP
+    lexer.BITWISE_RIGHT_SHIFT_ASSIGNMENT_OP,
+    lexer.TERNARY_OP
 }
 
 
@@ -119,6 +121,13 @@ class Return(Statement):
     exp: 'Expression'
 
 
+@dataclass
+class If(Statement):
+    condition: 'Expression'
+    then: 'Statement'
+    else_: 'Statement'
+
+
 class Null(Statement):
     pass
 
@@ -154,6 +163,13 @@ class Binary(Expression):
 class Assignment(Expression):
     left: 'Expression'
     right: 'Expression'
+
+
+@dataclass
+class Conditional(Expression):
+    condition: 'Expression'
+    then: 'Expression'
+    else_: 'Expression'
 
 
 @dataclass
@@ -201,6 +217,8 @@ def parse_statement(tokens):
     next_token = peek(tokens)
     if next_token[0] == lexer.RETURN:
         return parse_return(tokens)
+    elif next_token[0] == lexer.IF:
+        return parse_if(tokens)
     elif next_token[0] == lexer.SEMICOLON:
         pop(tokens)
         return Null()
@@ -229,6 +247,20 @@ def parse_return(tokens):
     return Return(val)
 
 
+def parse_if(tokens):
+    expect(lexer.IF, tokens)
+    expect(lexer.OPEN_PAREN, tokens)
+    condition = parse_expression(tokens, 0)
+    expect(lexer.CLOSE_PAREN, tokens)
+    then = parse_statement(tokens)
+    else_ = None
+    next_token = peek(tokens)
+    if next_token[0] == lexer.ELSE:
+        pop(tokens)
+        else_ = parse_statement(tokens)
+    return If(condition, then, else_)
+
+
 def parse_expression(tokens, min_precedence):
     left = parse_prefix_expression(tokens)
     next_token = peek(tokens)
@@ -239,12 +271,23 @@ def parse_expression(tokens, min_precedence):
             if next_token[0] != lexer.ASSIGNMENT_OP:
                 right = Binary(parse_assignment_operator(next_token[0]), left, right)
             left = Assignment(left, right)
+        elif next_token[0] == lexer.TERNARY_OP:
+            middle = parse_conditional_middle(tokens)
+            right = parse_expression(tokens, precedence[next_token[0]])
+            left = Conditional(left, middle, right)
         else:
             bin_op = parse_binary_operator(tokens)
             right = parse_expression(tokens, precedence[next_token[0]] + 1)
             left = Binary(bin_op, left, right)
         next_token = peek(tokens)
     return parse_postfix(tokens, left)
+
+
+def parse_conditional_middle(tokens):
+    expect(lexer.TERNARY_OP, tokens)
+    exp = parse_expression(tokens, 0)
+    expect(lexer.COLON, tokens)
+    return exp
 
 
 def parse_prefix_expression(tokens):
@@ -287,18 +330,18 @@ def parse_postfix(tokens, left):
     return left
 
 
-def parse_constant(tokens):
+def parse_constant(tokens) -> Constant:
     value = expect(lexer.CONSTANT, tokens)[1]
     return Constant(value)
 
 
-def parse_unary(tokens):
+def parse_unary(tokens) -> Unary:
     operator = parse_unary_operator(tokens)
     inner_exp = parse_factor(tokens)
     return Unary(operator, inner_exp)
 
 
-def parse_assignment_operator(op):
+def parse_assignment_operator(op) -> BinaryOperator:
     match op:
         case lexer.ADDITION_ASSIGNMENT_OP:
             return BinaryOperator.ADD
@@ -322,7 +365,7 @@ def parse_assignment_operator(op):
             return BinaryOperator.BITWISE_RIGHTSHIFT
 
 
-def parse_unary_operator(tokens):
+def parse_unary_operator(tokens) -> UnaryOperator:
     op = pop(tokens)
     if op[0] == lexer.BITWISE_COMPLEMENT_OP:
         return UnaryOperator.COMPLEMENT
@@ -338,7 +381,7 @@ def parse_unary_operator(tokens):
         raise SyntaxError(f"Unexpected operator: {op}")
 
 
-def parse_binary_operator(tokens):
+def parse_binary_operator(tokens) -> BinaryOperator:
     op = pop(tokens)
     if op[0] == lexer.SUBTRACTION_OP:
         return BinaryOperator.SUBTRACT

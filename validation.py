@@ -39,6 +39,10 @@ def resolve_declaration(declaration: parser.Declaration, variable_map: Dict):
 def resolve_statement(statement: parser.Statement, variable_map: Dict):
     if isinstance(statement, parser.Return):
         return parser.Return(resolve_exp(statement.exp, variable_map))
+    elif isinstance(statement, parser.If):
+        return parser.If(resolve_exp(statement.condition, variable_map),
+                         resolve_statement(statement.then, variable_map),
+                         resolve_statement(statement.else_, variable_map))
     elif isinstance(statement, parser.Expression):
         return resolve_exp(statement, variable_map)
     else:
@@ -64,5 +68,9 @@ def resolve_exp(exp: parser.Expression, variable_map: Dict):
         return parser.Binary(exp.operator, resolve_exp(exp.left, variable_map), resolve_exp(exp.right, variable_map))
     elif isinstance(exp, parser.Constant):
         return parser.Constant(exp.value)
+    elif isinstance(exp, parser.Conditional):
+        return parser.Conditional(resolve_exp(exp.condition, variable_map),
+                                  resolve_exp(exp.then, variable_map),
+                                  resolve_exp(exp.else_, variable_map))
     else:
         raise SyntaxError("Invalid expression!")
