@@ -237,7 +237,7 @@ def parse_expression(tokens, min_precedence):
             pop(tokens)
             right = parse_expression(tokens, precedence[next_token[0]])
             if next_token[0] != lexer.ASSIGNMENT_OP:
-                right = Binary(parse_assignment_op(next_token[0]), left, right)
+                right = Binary(parse_assignment_operator(next_token[0]), left, right)
             left = Assignment(left, right)
         else:
             bin_op = parse_binary_operator(tokens)
@@ -245,30 +245,6 @@ def parse_expression(tokens, min_precedence):
             left = Binary(bin_op, left, right)
         next_token = peek(tokens)
     return parse_postfix(tokens, left)
-
-
-def parse_assignment_op(op):
-    match op:
-        case lexer.ADDITION_ASSIGNMENT_OP:
-            return BinaryOperator.ADD
-        case lexer.SUBTRACTION_ASSIGNMENT_OP:
-            return BinaryOperator.SUBTRACT
-        case lexer.MULTIPLICATION_ASSIGNMENT_OP:
-            return BinaryOperator.MULTIPLY
-        case lexer.DIVISION_ASSIGNMENT_OP:
-            return BinaryOperator.DIVIDE
-        case lexer.REMAINDER_ASSIGNMENT_OP:
-            return BinaryOperator.REMAINDER
-        case lexer.BITWISE_OR_ASSIGNMENT_OP:
-            return BinaryOperator.BITWISE_OR
-        case lexer.BITWISE_AND_ASSIGNMENT_OP:
-            return BinaryOperator.BITWISE_AND
-        case lexer.BITWISE_XOR_ASSIGNMENT_OP:
-            return BinaryOperator.BITWISE_XOR
-        case lexer.BITWISE_LEFT_SHIFT_ASSIGNMENT_OP:
-            return BinaryOperator.BITWISE_LEFTSHIFT
-        case lexer.BITWISE_RIGHT_SHIFT_ASSIGNMENT_OP:
-            return BinaryOperator.BITWISE_RIGHTSHIFT
 
 
 def parse_prefix_expression(tokens):
@@ -320,6 +296,30 @@ def parse_unary(tokens):
     operator = parse_unary_operator(tokens)
     inner_exp = parse_factor(tokens)
     return Unary(operator, inner_exp)
+
+
+def parse_assignment_operator(op):
+    match op:
+        case lexer.ADDITION_ASSIGNMENT_OP:
+            return BinaryOperator.ADD
+        case lexer.SUBTRACTION_ASSIGNMENT_OP:
+            return BinaryOperator.SUBTRACT
+        case lexer.MULTIPLICATION_ASSIGNMENT_OP:
+            return BinaryOperator.MULTIPLY
+        case lexer.DIVISION_ASSIGNMENT_OP:
+            return BinaryOperator.DIVIDE
+        case lexer.REMAINDER_ASSIGNMENT_OP:
+            return BinaryOperator.REMAINDER
+        case lexer.BITWISE_OR_ASSIGNMENT_OP:
+            return BinaryOperator.BITWISE_OR
+        case lexer.BITWISE_AND_ASSIGNMENT_OP:
+            return BinaryOperator.BITWISE_AND
+        case lexer.BITWISE_XOR_ASSIGNMENT_OP:
+            return BinaryOperator.BITWISE_XOR
+        case lexer.BITWISE_LEFT_SHIFT_ASSIGNMENT_OP:
+            return BinaryOperator.BITWISE_LEFTSHIFT
+        case lexer.BITWISE_RIGHT_SHIFT_ASSIGNMENT_OP:
+            return BinaryOperator.BITWISE_RIGHTSHIFT
 
 
 def parse_unary_operator(tokens):
