@@ -41,8 +41,8 @@ def resolve_statement(statement: parser.Statement, variable_map: Dict):
         return parser.Return(resolve_exp(statement.exp, variable_map))
     elif isinstance(statement, parser.Expression):
         return resolve_exp(statement, variable_map)
-    elif isinstance(statement, parser.Null):
-        return parser.Null()
+    else:
+        return statement
 
 
 def resolve_exp(exp: parser.Expression, variable_map: Dict):
