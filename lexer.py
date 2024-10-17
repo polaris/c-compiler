@@ -8,6 +8,7 @@ IDENTIFIER = 'IDENTIFIER'
 CONSTANT = 'CONSTANT'
 IF = 'IF'
 ELSE = 'ELSE'
+GOTO = 'GOTO'
 
 TERNARY_OP = 'TERNARY_OP'
 
@@ -25,6 +26,7 @@ COMMA = 'COMMA'
 WHITESPACE = 'WHITESPACE'
 PRECOMPILER_DIRECTIVE = 'HASH'
 COMMENT = 'COMMENT'
+LABEL = 'LABEL'
 
 DIVISION_OP = 'SLASH'
 
@@ -72,7 +74,9 @@ token_specification = [
     (RETURN, r'return\b'),
     (IF, r'if\b'),
     (ELSE, r'else\b'),
-    (IDENTIFIER, r'[a-zA-Z]\w*\b'),
+    (GOTO, r'goto\b'),
+    (LABEL, r'[a-zA-Z_][a-zA-Z0-9_]*\s*:(?=\s*;|\s*\n|\s*//|\s*/\*)'),
+    (IDENTIFIER, r'[a-zA-Z_]\w*\b'),
     (CONSTANT, r'\b\d+\b'),
     (COMMENT, r'//.*|/\*[\s\S]*?\*/'),
     (PRECOMPILER_DIRECTIVE, r'#.*'),

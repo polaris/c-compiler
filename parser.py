@@ -128,6 +128,17 @@ class If(Statement):
     else_: 'Statement'
 
 
+@dataclass
+class Goto(Statement):
+    label: str
+
+
+@dataclass
+class Label(Statement):
+    label: str
+    statement: 'Statement'
+
+
 class Null(Statement):
     pass
 
@@ -219,6 +230,10 @@ def parse_statement(tokens):
         return parse_return(tokens)
     elif next_token[0] == lexer.IF:
         return parse_if(tokens)
+    elif next_token[0] == lexer.GOTO:
+        return parse_goto(tokens)
+    elif next_token[0] == lexer.LABEL:
+        return parse_label(tokens)
     elif next_token[0] == lexer.SEMICOLON:
         pop(tokens)
         return Null()
@@ -259,6 +274,27 @@ def parse_if(tokens):
         pop(tokens)
         else_ = parse_statement(tokens)
     return If(condition, then, else_)
+
+
+def parse_goto(tokens):
+    expect(lexer.GOTO, tokens)
+    label = expect(lexer.IDENTIFIER, tokens)[1]
+    expect(lexer.SEMICOLON, tokens)
+    return Goto(label)
+
+
+def parse_label(tokens):
+    label = expect(lexer.LABEL, tokens)[1]
+    statement = parse_statement(tokens)
+    return Label(extract_label(label), statement)
+
+
+def extract_label(label):
+    label = label.strip()
+    colon_index = label.find(':')
+    if colon_index == -1 or colon_index == 0:
+        return None
+    return label[:colon_index].strip()
 
 
 def parse_expression(tokens, min_precedence):

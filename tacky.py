@@ -109,6 +109,10 @@ class Translator:
             return self.translate_return(statement)
         elif isinstance(statement, parser.If):
             return self.translate_if(statement)
+        elif isinstance(statement, parser.Goto):
+            return self.translate_goto(statement)
+        elif isinstance(statement, parser.Label):
+            return self.translate_label(statement)
         elif isinstance(statement, parser.Expression):
             instructions = []
             dst = Variable(utils.make_temporary())
@@ -152,6 +156,17 @@ class Translator:
             instructions.append(Label(else_label))
             instructions.extend(self.translate_statement(if_stmt.else_))
             instructions.append(Label(end_label))
+        return instructions
+    
+    def translate_goto(self, goto_stmt: 'parser.Goto') -> List[Instruction]:
+        instructions = []
+        instructions.append(Jump(goto_stmt.label))
+        return instructions
+    
+    def translate_label(self, label_stmt: 'parser.Label'):
+        instructions = []
+        instructions.append(Label(label_stmt.label))
+        instructions.extend(self.translate_statement(label_stmt.statement))
         return instructions
 
     def emit_tacky(self, exp: 'parser.Expression', instructions: List[Instruction]) -> Value:

@@ -17,12 +17,17 @@ def variable_resolution(ast_program: parser.Program, variable_map: Dict):
 
 def process_function(function: parser.Function, variable_map: Dict):
     body = []
+    labels = {}
     for item in function.body:
         if isinstance(item, parser.Declaration):
             body.append(resolve_declaration(item, variable_map))
         elif isinstance(item, parser.Statement):
-            body.append(resolve_statement(item, variable_map))
+            body.append(resolve_statement(item, variable_map, labels))
     function.body = body
+    
+    for key in labels:
+        if labels[key] == False:
+            raise SyntaxError(f'Use of undeclared label \'{key}\'')
 
 
 def resolve_declaration(declaration: parser.Declaration, variable_map: Dict):
@@ -36,15 +41,24 @@ def resolve_declaration(declaration: parser.Declaration, variable_map: Dict):
     return Declaration(unique_name, init)
 
 
-def resolve_statement(statement: parser.Statement, variable_map: Dict):
+def resolve_statement(statement: parser.Statement, variable_map: Dict, labels: Dict):
     if isinstance(statement, parser.Return):
         return parser.Return(resolve_exp(statement.exp, variable_map))
     elif isinstance(statement, parser.If):
         return parser.If(resolve_exp(statement.condition, variable_map),
-                         resolve_statement(statement.then, variable_map),
-                         resolve_statement(statement.else_, variable_map))
+                         resolve_statement(statement.then, variable_map, labels),
+                         resolve_statement(statement.else_, variable_map, labels))
     elif isinstance(statement, parser.Expression):
         return resolve_exp(statement, variable_map)
+    elif isinstance(statement, parser.Goto):
+        if statement.label not in labels:
+            labels[statement.label] = False
+        return statement
+    elif isinstance(statement, parser.Label):
+        if statement.label in labels and labels[statement.label] == True:
+            raise SyntaxError(f'Redefinition of label \'{statement.label}\'')
+        labels[statement.label] = True
+        return parser.Label(statement.label, resolve_statement(statement.statement, variable_map, labels))
     else:
         return statement
 
