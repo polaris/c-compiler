@@ -132,12 +132,24 @@ class AssemblyFunction(AssemblyNode):
                 i += 2
             elif (
                 isinstance(inst, Binary) and
-                inst.binary_operator == common.BinaryOperator.MULTIPLY and
+                inst.binary_operator in {common.BinaryOperator.MULTIPLY, common.BinaryOperator.BITWISE_AND, common.BinaryOperator.BITWISE_OR, common.BinaryOperator.BITWISE_XOR} and
                 isinstance(inst.dst, Stack)
             ):
                 self.instructions[i:i+1] = [
                     Mov(inst.dst, Register("r11d")),
                     Binary(inst.binary_operator, inst.src, Register("r11d")),
+                    Mov(Register("r11d"), inst.dst)
+                ]
+                i += 3
+            elif (
+                isinstance(inst, Binary) and
+                inst.binary_operator in {common.BinaryOperator.BITWISE_LEFTSHIFT, common.BinaryOperator.BITWISE_RIGHTSHIFT} and
+                isinstance(inst.dst, Stack)
+            ):
+                self.instructions[i:i+1] = [
+                    Mov(inst.dst, Register("r11d")),
+                    Mov(inst.src, Register("ecx")),
+                    Binary(inst.binary_operator, Register("cl"), Register("r11d")),
                     Mov(Register("r11d"), inst.dst)
                 ]
                 i += 3
