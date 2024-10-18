@@ -95,14 +95,18 @@ class Translator:
         return Program(functions)
 
     def translate_function(self, function: 'parser.Function') -> Function:
+        instructions = self.translate_block(function.block)
+        instructions.append(Return(Constant(0)))
+        return Function(function.name, instructions)
+    
+    def translate_block(self, block: 'parser.Block'):
         instructions = []
-        for item in function.body:
+        for item in block.block_items:
             if isinstance(item, parser.Statement):
                 instructions.extend(self.translate_statement(item))
             elif isinstance(item, parser.Declaration):
                 instructions.extend(self.translate_declaration(item))
-        instructions.append(Return(Constant(0)))
-        return Function(function.name, instructions)
+        return instructions
 
     def translate_statement(self, statement: 'parser.Statement') -> List[Instruction]:
         if isinstance(statement, parser.Return):
@@ -113,6 +117,8 @@ class Translator:
             return self.translate_goto(statement)
         elif isinstance(statement, parser.Label):
             return self.translate_label(statement)
+        elif isinstance(statement, parser.Compound):
+            return self.translate_block(statement.block)
         elif isinstance(statement, parser.Expression):
             instructions = []
             dst = Variable(utils.make_temporary())

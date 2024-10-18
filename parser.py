@@ -87,6 +87,21 @@ assignment_ops = {
 }
 
 
+prefix_ops = {
+    lexer.BITWISE_COMPLEMENT_OP,
+    lexer.SUBTRACTION_OP,
+    lexer.LOGICAL_NOT_OP,
+    lexer.INCREMENT_OP,
+    lexer.DECREMENT_OP
+}
+
+
+postfix_ops = {
+    lexer.INCREMENT_OP,
+    lexer.DECREMENT_OP
+}
+
+
 class Node:
     pass
 
@@ -99,11 +114,16 @@ class Program(Node):
 @dataclass
 class Function(Node):
     name: str
-    body: List['BlockItem']
+    block: 'Block'
 
 
 class BlockItem(Node):
     pass
+
+
+@dataclass
+class Block(Node):
+    block_items: List['BlockItem']
 
 
 @dataclass
@@ -137,6 +157,11 @@ class Goto(Statement):
 class Label(Statement):
     label: str
     statement: 'Statement'
+
+
+@dataclass
+class Compound(Statement):
+    block: 'Block'
 
 
 class Null(Statement):
@@ -202,18 +227,20 @@ def parse_function(tokens):
     expect(lexer.OPEN_PAREN, tokens)
     expect(lexer.VOID, tokens)
     expect(lexer.CLOSE_PAREN, tokens)
-    expect(lexer.OPEN_BRACE, tokens)
+    block = parse_block(tokens)
+    return Function(name, block)
 
-    function_body = []
+
+def parse_block(tokens):
+    expect(lexer.OPEN_BRACE, tokens)
+    block_items = []
     next_token = peek(tokens)
     while next_token[0] != lexer.CLOSE_BRACE:
         next_block_item = parse_block_item(tokens)
-        function_body.append(next_block_item)
+        block_items.append(next_block_item)
         next_token = peek(tokens)
-
     pop(tokens)
-
-    return Function(name, function_body)
+    return Block(block_items)
 
 
 def parse_block_item(tokens):
@@ -234,6 +261,8 @@ def parse_statement(tokens):
         return parse_goto(tokens)
     elif next_token[0] == lexer.LABEL:
         return parse_label(tokens)
+    elif next_token[0] == lexer.OPEN_BRACE:
+        return parse_compound(tokens)
     elif next_token[0] == lexer.SEMICOLON:
         pop(tokens)
         return Null()
@@ -241,6 +270,11 @@ def parse_statement(tokens):
         exp = parse_expression(tokens, 0)
         expect(lexer.SEMICOLON, tokens)
         return exp
+
+
+def parse_compound(tokens):
+    block = parse_block(tokens)
+    return Compound(block)
 
 
 def parse_declaration(tokens):
@@ -328,7 +362,7 @@ def parse_conditional_middle(tokens):
 
 def parse_prefix_expression(tokens):
     next_token = peek(tokens)
-    if next_token[0] in {lexer.BITWISE_COMPLEMENT_OP, lexer.SUBTRACTION_OP, lexer.LOGICAL_NOT_OP, lexer.INCREMENT_OP, lexer.DECREMENT_OP}:
+    if next_token[0] in prefix_ops:
         return parse_prefix(tokens)
     else:
         return parse_postfix(tokens, parse_factor(tokens))
@@ -356,7 +390,7 @@ def parse_prefix(tokens):
 
 def parse_postfix(tokens, left):
     next_token = peek(tokens)
-    while next_token[0] in {lexer.INCREMENT_OP, lexer.DECREMENT_OP}:
+    while next_token[0] in postfix_ops:
         operator = pop(tokens)[0]
         if operator == lexer.INCREMENT_OP:
             left = Unary(UnaryOperator.POST_INCREMENT, left)
