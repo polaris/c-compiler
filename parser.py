@@ -132,6 +132,20 @@ class Declaration(BlockItem):
     init: Optional['Expression'] = None
 
 
+class ForInit(Node):
+    pass
+
+
+@dataclass
+class InitDeclaration(ForInit):
+    declaration: 'Declaration'
+
+
+@dataclass
+class InitExpression(ForInit):
+    expression: 'Expression'
+
+
 class Statement(BlockItem):
     pass
 
@@ -166,6 +180,39 @@ class Compound(Statement):
 
 class Null(Statement):
     pass
+
+
+@dataclass
+class Break(Statement):
+    label: Optional[str] = None
+
+
+@dataclass
+class Continue(Statement):
+    label: Optional[str] = None
+
+
+@dataclass
+class While(Statement):
+    condition: 'Expression'
+    body: 'Statement'
+    label: Optional[str] = None
+
+
+@dataclass
+class DoWhile(Statement):
+    condition: 'Expression'
+    body: 'Statement'
+    label: Optional[str] = None
+
+
+@dataclass
+class For(Statement):
+    for_init: 'ForInit'
+    condition: 'Expression'
+    post: 'Expression'
+    body: 'Statement'
+    label: Optional[str] = None
 
 
 class Expression(Statement):
@@ -259,6 +306,16 @@ def parse_statement(tokens):
         return parse_if(tokens)
     elif next_token[0] == lexer.GOTO:
         return parse_goto(tokens)
+    elif next_token[0] == lexer.BREAK:
+        return parse_break(tokens)
+    elif next_token[0] == lexer.CONTINUE:
+        return parse_continue(tokens)
+    elif next_token[0] == lexer.WHILE:
+        return parse_while(tokens)
+    elif next_token[0] == lexer.DO:
+        return parse_do(tokens)
+    elif next_token[0] == lexer.FOR:
+        return parse_for(tokens)
     elif next_token[0] == lexer.LABEL:
         return parse_label(tokens)
     elif next_token[0] == lexer.OPEN_BRACE:
@@ -315,6 +372,77 @@ def parse_goto(tokens):
     label = expect(lexer.IDENTIFIER, tokens)[1]
     expect(lexer.SEMICOLON, tokens)
     return Goto(label)
+
+
+def parse_break(tokens):
+    expect(lexer.BREAK, tokens)
+    expect(lexer.SEMICOLON, tokens)
+    return Break()
+
+
+def parse_continue(tokens):
+    expect(lexer.CONTINUE, tokens)
+    expect(lexer.SEMICOLON, tokens)
+    return Continue()
+
+
+def parse_while(tokens):
+    expect(lexer.WHILE, tokens)
+    expect(lexer.OPEN_PAREN, tokens)
+    exp = parse_expression(tokens, 0)
+    expect(lexer.CLOSE_PAREN, tokens)
+    statement = parse_statement(tokens)
+    return While(exp, statement)
+
+
+def parse_do(tokens):
+    expect(lexer.DO, tokens)
+    statement = parse_statement(tokens)
+    expect(lexer.WHILE, tokens)
+    expect(lexer.OPEN_PAREN, tokens)
+    exp = parse_expression(tokens, 0)
+    expect(lexer.CLOSE_PAREN, tokens)
+    expect(lexer.SEMICOLON, tokens)
+    return DoWhile(exp, statement)
+
+
+def parse_for(tokens):
+    expect(lexer.FOR, tokens)
+    expect(lexer.OPEN_PAREN, tokens)
+
+    for_init = parse_for_init(tokens)
+
+    cond = None
+    next_token = peek(tokens)
+    if next_token[0] != lexer.SEMICOLON:
+        cond = parse_expression(tokens, 0)
+    expect(lexer.SEMICOLON, tokens)
+
+    post = None
+    next_token = peek(tokens)
+    if next_token[0] != lexer.CLOSE_PAREN:
+        post = parse_expression(tokens, 0)
+
+    expect(lexer.CLOSE_PAREN, tokens)
+
+    body = parse_statement(tokens)
+    return For(for_init, cond, post, body)
+
+
+def parse_for_init(tokens):
+    for_init = None
+    next_token = peek(tokens)
+    if next_token[0] == lexer.INT:
+        decl = parse_declaration(tokens)
+        for_init = InitDeclaration(decl)
+    else:
+        if next_token[0] == lexer.SEMICOLON:
+            pop(tokens)
+        else:
+            expr = parse_expression(tokens, 0)
+            for_init = InitExpression(expr)
+            expect(lexer.SEMICOLON, tokens)
+    return for_init
 
 
 def parse_label(tokens):

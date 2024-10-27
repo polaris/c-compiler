@@ -115,6 +115,50 @@ class Translator:
             return self.translate_if(statement)
         elif isinstance(statement, parser.Goto):
             return self.translate_goto(statement)
+        elif isinstance(statement, parser.Break):
+            return [Jump(f'break_{statement.label}')]
+        elif isinstance(statement, parser.Continue):
+            return [Jump(f'continue_{statement.label}')]
+        elif isinstance(statement, parser.DoWhile):
+            instructions = []
+            start_label = self.generate_unique_label("start")
+            break_label = f'break_{statement.label}'
+            continue_label = f'continue_{statement.label}'
+            instructions.append(Label(start_label))
+            instructions.extend(self.translate_statement(statement.body))
+            instructions.append(Label(continue_label))
+            v = self.emit_tacky(statement.condition, instructions)
+            instructions.append(JumpIfNotZero(v, start_label))
+            instructions.append(Label(break_label))
+            return instructions
+        elif isinstance(statement, parser.While):
+            instructions = []
+            break_label = f'break_{statement.label}'
+            continue_label = f'continue_{statement.label}'
+            instructions.append(Label(continue_label))
+            v = self.emit_tacky(statement.condition, instructions)
+            instructions.append(JumpIfZero(v, break_label))
+            instructions.extend(self.translate_statement(statement.body))
+            instructions.append(Jump(continue_label))
+            instructions.append(Label(break_label))
+            return instructions
+        elif isinstance(statement, parser.For):
+            instructions = []
+            start_label = self.generate_unique_label("start")
+            break_label = f'break_{statement.label}'
+            continue_label = f'continue_{statement.label}'
+            instructions.extend(self.translate_for_init(statement.for_init))
+            instructions.append(Label(start_label))
+            if statement.condition is not None:
+                v = self.emit_tacky(statement.condition, instructions)
+                instructions.append(JumpIfZero(v, break_label))
+            instructions.extend(self.translate_statement(statement.body))
+            instructions.append(Label(continue_label))
+            if statement.post is not None:
+                self.emit_tacky(statement.post, instructions)
+            instructions.append(Jump(start_label))
+            instructions.append(Label(break_label))
+            return instructions
         elif isinstance(statement, parser.Label):
             return self.translate_label(statement)
         elif isinstance(statement, parser.Compound):
@@ -148,7 +192,7 @@ class Translator:
         instructions = []
         if not if_stmt.else_:
             end_label = self.generate_unique_label("end")
-            c = self.emit_tacky(if_stmt.condition,instructions)
+            c = self.emit_tacky(if_stmt.condition, instructions)
             instructions.append(JumpIfZero(c, end_label))
             instructions.extend(self.translate_statement(if_stmt.then))
             instructions.append(Label(end_label))
@@ -165,13 +209,11 @@ class Translator:
         return instructions
     
     def translate_goto(self, goto_stmt: 'parser.Goto') -> List[Instruction]:
-        instructions = []
-        instructions.append(Jump(goto_stmt.label))
+        instructions = [Jump(goto_stmt.label)]
         return instructions
     
     def translate_label(self, label_stmt: 'parser.Label'):
-        instructions = []
-        instructions.append(Label(label_stmt.label))
+        instructions = [Label(label_stmt.label)]
         instructions.extend(self.translate_statement(label_stmt.statement))
         return instructions
 
@@ -272,3 +314,12 @@ class Translator:
         unique_label = f"{prefix}_{self.label_count}"
         self.label_count += 1
         return unique_label
+
+
+    def translate_for_init(self, for_init: 'parser.ForInit'):
+        instructions = []
+        if isinstance(for_init, parser.InitDeclaration):
+            instructions.extend(self.translate_declaration(for_init.declaration))
+        elif isinstance(for_init, parser.InitExpression):
+            self.emit_tacky(for_init.expression, instructions)
+        return instructions

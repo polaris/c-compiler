@@ -9,6 +9,11 @@ CONSTANT = 'CONSTANT'
 IF = 'IF'
 ELSE = 'ELSE'
 GOTO = 'GOTO'
+DO = 'DO'
+WHILE = 'WHILE'
+FOR = 'FOR'
+BREAK = 'BREAK'
+CONTINUE = 'CONTINUE'
 
 TERNARY_OP = 'TERNARY_OP'
 
@@ -75,6 +80,12 @@ token_specification = [
     (IF, r'if\b'),
     (ELSE, r'else\b'),
     (GOTO, r'goto\b'),
+    (DO, r'do\b'),
+    (WHILE, r'while\b'),
+    (FOR, r'for\b'),
+    (BREAK, r'break\b'),
+    (CONTINUE, r'continue\b'),
+
     (LABEL, r'[a-zA-Z_][a-zA-Z0-9_]*\s*:(?=\s*;|\s*\n|\s*//|\s*/\*)'),
     (IDENTIFIER, r'[a-zA-Z_]\w*\b'),
     (CONSTANT, r'\b\d+\b'),
