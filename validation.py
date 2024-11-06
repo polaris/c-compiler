@@ -72,6 +72,14 @@ def resolve_statement(statement: parser.Statement, variable_map: Dict, labels: D
         return parser.Label(statement.label, resolve_statement(statement.statement, variable_map, labels))
     elif isinstance(statement, parser.Compound):
         return resolve_compound(statement, variable_map, labels)
+    elif isinstance(statement, parser.Switch):
+        return parser.Switch(resolve_exp(statement.expr, variable_map),
+                             resolve_statement(statement.body, variable_map, labels))
+    elif isinstance(statement, parser.Default):
+        return parser.Default(resolve_statement(statement.statement, variable_map, labels))
+    elif isinstance(statement, parser.Case):
+        return parser.Case(resolve_exp(statement.const, variable_map),
+                           resolve_statement(statement.statement, variable_map, labels))
     else:
         return statement
 
@@ -159,62 +167,105 @@ def loop_labeling(ast_program: parser.Program):
 
 
 def ll_process_function(function: parser.Function):
-    loop_label: str = ""
-    function.block = ll_process_block(function.block, loop_label)
+    context = {'loop_label': '', 'switch_label': '', 'has_default': False, 'cases': []}
+    function.block = ll_process_block(function.block, context)
 
 
-def ll_process_block(block: parser.Block, loop_label: str):
+def ll_process_block(block: parser.Block, context):
     block_items = []
     for item in block.block_items:
         if isinstance(item, parser.Declaration):
             block_items.append(item)
         elif isinstance(item, parser.Statement):
-            block_items.append(ll_process_statement(item, loop_label))
+            block_items.append(ll_process_statement(item, context))
     return parser.Block(block_items)
 
 
-def ll_process_statement(statement: parser.Statement, loop_label: str):
-    if isinstance(statement, parser.If):
-        foo = parser.If(statement.condition,
-                         ll_process_statement(statement.then, loop_label),
-                         ll_process_statement(statement.else_, loop_label))
-        return foo
-    elif isinstance(statement, parser.Continue):
-        if loop_label == '':
-            raise SyntaxError("Loop label not defined!")
-        else:
-            statement.label = loop_label
-            return statement
-    elif isinstance(statement, parser.Break):
-        if loop_label == '':
-            raise SyntaxError("Loop label not defined!")
-        else:
-            statement.label = loop_label
-            return statement
+def ll_process_statement(statement: parser.Statement, context):
+    if isinstance(statement, parser.Switch):
+        old_switch_label = context.get('switch_label', '')
+        old_has_default = context.get('has_default', False)
+        old_cases = context.get('cases', [])
+        new_switch_label = make_label()
+        context['switch_label'] = new_switch_label
+        context['has_default'] = False
+        context['cases'] = []
+        body = ll_process_statement(statement.body, context)
+        context['switch_label'] = old_switch_label
+        context['has_default'] = old_has_default
+        context['cases'] = old_cases
+        return parser.Switch(statement.expr, body, new_switch_label)
+    elif isinstance(statement, parser.Default):
+        if context.get('switch_label', '') == '':
+            raise SyntaxError("Default statement not within switch!")
+        if context['has_default']:
+            raise SyntaxError("Multiple default labels in one switch!")
+        context['has_default'] = True
+        body = ll_process_statement(statement.statement, context)
+        return parser.Default(body)
+    elif isinstance(statement, parser.Case):
+        if context.get('switch_label', '') == '':
+            raise SyntaxError("Case statement not within switch!")
+        body = ll_process_statement(statement.statement, context)
+        if statement.const in context['cases']:
+            raise SyntaxError(f'Duplicate case value {statement.const}')
+        context['cases'].append(statement.const)
+        return parser.Case(statement.const, body)
+    elif isinstance(statement, parser.If):
+        then = ll_process_statement(statement.then, context)
+        else_ = ll_process_statement(statement.else_, context)
+        return parser.If(statement.condition, then, else_)
     elif isinstance(statement, parser.While):
+        old_loop_label = context.get('loop_label', '')
         new_loop_label = make_label()
-        return parser.While(statement.condition,
-                            ll_process_statement(statement.body, new_loop_label), new_loop_label)
+        context['loop_label'] = new_loop_label
+        body = ll_process_statement(statement.body, context)
+        context['loop_label'] = old_loop_label
+        return parser.While(statement.condition, body, new_loop_label)
     elif isinstance(statement, parser.DoWhile):
+        old_loop_label = context.get('loop_label', '')
         new_loop_label = make_label()
-        return parser.DoWhile(statement.condition,
-                              ll_process_statement(statement.body, new_loop_label), new_loop_label)
+        context['loop_label'] = new_loop_label
+        body = ll_process_statement(statement.body, context)
+        context['loop_label'] = old_loop_label
+        return parser.DoWhile(statement.condition, body, new_loop_label)
     elif isinstance(statement, parser.For):
+        old_loop_label = context.get('loop_label', '')
         new_loop_label = make_label()
-        return ll_process_for_statement(statement, new_loop_label)
+        context['loop_label'] = new_loop_label
+        body = ll_process_statement(statement.body, context)
+        context['loop_label'] = old_loop_label
+        return parser.For(statement.for_init, statement.condition, statement.post, body, new_loop_label)
+    elif isinstance(statement, parser.Break):
+        if context.get('switch_label', '') != '':
+            statement.label = context['switch_label']
+            return statement
+        elif context.get('loop_label', '') != '':
+            statement.label = context['loop_label']
+            return statement
+        else:
+            raise SyntaxError("Break statement not within loop or switch!")
+    elif isinstance(statement, parser.Continue):
+        if context.get('loop_label', '') != '':
+            statement.label = context['loop_label']
+            return statement
+        else:
+            raise SyntaxError("Continue statement not within loop!")
     elif isinstance(statement, parser.Label):
-        return parser.Label(statement.label, ll_process_statement(statement.statement, loop_label))
+        body = ll_process_statement(statement.statement, context)
+        return parser.Label(statement.label, body)
     elif isinstance(statement, parser.Compound):
-        return ll_process_compound(statement, loop_label)
+        body = ll_process_block(statement.block, context)
+        return parser.Compound(body)    
     else:
         return statement
 
 
-def ll_process_for_statement(statement: parser.For, loop_label: str):
-    body = ll_process_statement(statement.body, loop_label)
+def ll_process_for_statement(statement: parser.For, loop_label: str, switch_label: str):
+    body = ll_process_statement(statement.body, loop_label, switch_label)
     return parser.For(statement.for_init, statement.condition, statement.post, body, loop_label)
 
 
-def ll_process_compound(statement: parser.Compound, loop_label: str):
-    block = ll_process_block(statement.block, loop_label)
+def ll_process_compound(statement: parser.Compound, loop_label: str, switch_label: str):
+    block = ll_process_block(statement.block, loop_label, switch_label)
     return parser.Compound(block)

@@ -215,6 +215,28 @@ class For(Statement):
     label: Optional[str] = None
 
 
+@dataclass
+class Switch(Statement):
+    expr: 'Expression'
+    body: 'Compound'
+    label: Optional[str] = None
+
+
+class LabeledStatement(Statement):
+    pass
+
+
+@dataclass
+class Case(LabeledStatement):
+    const: 'Constant'
+    statement: 'Statement'
+
+
+@dataclass
+class Default(LabeledStatement):
+    statement: 'Statement'
+
+
 class Expression(Statement):
     pass
 
@@ -316,17 +338,66 @@ def parse_statement(tokens):
         return parse_do(tokens)
     elif next_token[0] == lexer.FOR:
         return parse_for(tokens)
-    elif next_token[0] == lexer.LABEL:
-        return parse_label(tokens)
+    elif next_token[0] == lexer.SWITCH:
+        return parse_switch(tokens)
+    elif next_token[0] == lexer.CASE:
+        return parse_case_label(tokens)
+    elif next_token[0] == lexer.DEFAULT:
+        return parse_default_label(tokens)
     elif next_token[0] == lexer.OPEN_BRACE:
         return parse_compound(tokens)
     elif next_token[0] == lexer.SEMICOLON:
         pop(tokens)
         return Null()
+    elif next_token[0] == lexer.IDENTIFIER and peek(tokens, 1)[0] == lexer.COLON:
+        return parse_label(tokens)
     else:
         exp = parse_expression(tokens, 0)
         expect(lexer.SEMICOLON, tokens)
         return exp
+
+
+def parse_label(tokens):
+    label = expect(lexer.IDENTIFIER, tokens)[1]
+    expect(lexer.COLON, tokens)
+    statement = parse_statement(tokens)
+    return Label(label, statement)
+
+
+def parse_switch(tokens):
+    expect(lexer.SWITCH, tokens)
+    expect(lexer.OPEN_PAREN, tokens)
+    expr = parse_expression(tokens, 0)
+    expect(lexer.CLOSE_PAREN, tokens)
+    body = parse_statement(tokens)
+    return Switch(expr, body)
+
+
+def parse_case_label(tokens):
+    expect(lexer.CASE, tokens)
+    c = parse_expression(tokens, 0)
+    if not isinstance(c, Constant):
+        raise SyntaxError("Case label must be constant")
+    expect(lexer.COLON, tokens)
+    statements = []
+    while True:
+        next_token = peek(tokens)
+        if next_token[0] in {lexer.CASE, lexer.DEFAULT, lexer.CLOSE_BRACE}:
+            break
+        statements.append(parse_statement(tokens))
+    return Case(c, Compound(Block(statements)))
+
+
+def parse_default_label(tokens):
+    expect(lexer.DEFAULT, tokens)
+    expect(lexer.COLON, tokens)
+    statements = []
+    while True:
+        next_token = peek(tokens)
+        if next_token[0] in {lexer.CASE, lexer.DEFAULT, lexer.CLOSE_BRACE}:
+            break
+        statements.append(parse_statement(tokens))
+    return Default(Compound(Block(statements)))
 
 
 def parse_compound(tokens):
@@ -443,20 +514,6 @@ def parse_for_init(tokens):
             for_init = InitExpression(expr)
             expect(lexer.SEMICOLON, tokens)
     return for_init
-
-
-def parse_label(tokens):
-    label = expect(lexer.LABEL, tokens)[1]
-    statement = parse_statement(tokens)
-    return Label(extract_label(label), statement)
-
-
-def extract_label(label):
-    label = label.strip()
-    colon_index = label.find(':')
-    if colon_index == -1 or colon_index == 0:
-        return None
-    return label[:colon_index].strip()
 
 
 def parse_expression(tokens, min_precedence):
@@ -627,10 +684,10 @@ def pop(tokens):
     return tokens.pop(0)
 
 
-def peek(tokens):
-    if not tokens:
+def peek(tokens, n=0):
+    if n >= len(tokens):
         raise SyntaxError("Unexpected end of input")
-    return tokens[0]
+    return tokens[n]
 
 
 def expect(type_, tokens):

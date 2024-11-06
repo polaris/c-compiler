@@ -95,84 +95,203 @@ class Translator:
         return Program(functions)
 
     def translate_function(self, function: 'parser.Function') -> Function:
-        instructions = self.translate_block(function.block)
+        context = None
+        instructions = self.translate_block(function.block, context)
         instructions.append(Return(Constant(0)))
         return Function(function.name, instructions)
     
-    def translate_block(self, block: 'parser.Block'):
+    def translate_block(self, block: 'parser.Block', context):
         instructions = []
         for item in block.block_items:
             if isinstance(item, parser.Statement):
-                instructions.extend(self.translate_statement(item))
+                instructions.extend(self.translate_statement(item, context))
             elif isinstance(item, parser.Declaration):
                 instructions.extend(self.translate_declaration(item))
         return instructions
 
-    def translate_statement(self, statement: 'parser.Statement') -> List[Instruction]:
+    def translate_statement(self, statement: 'parser.Statement', context) -> List[Instruction]:
         if isinstance(statement, parser.Return):
             return self.translate_return(statement)
         elif isinstance(statement, parser.If):
-            return self.translate_if(statement)
+            return self.translate_if(statement, context)
         elif isinstance(statement, parser.Goto):
             return self.translate_goto(statement)
         elif isinstance(statement, parser.Break):
-            return [Jump(f'break_{statement.label}')]
+            return self.translate_break(statement, context)
         elif isinstance(statement, parser.Continue):
-            return [Jump(f'continue_{statement.label}')]
+            return self.translate_continue(statement, context)
+        elif isinstance(statement, parser.Switch):
+            return self.translate_switch(statement, context)
+        elif isinstance(statement, parser.Case):
+            return self.translate_case(statement, context)
+        elif isinstance(statement, parser.Default):
+            return self.translate_default(statement, context)
         elif isinstance(statement, parser.DoWhile):
-            instructions = []
-            start_label = self.generate_unique_label("start")
-            break_label = f'break_{statement.label}'
-            continue_label = f'continue_{statement.label}'
-            instructions.append(Label(start_label))
-            instructions.extend(self.translate_statement(statement.body))
-            instructions.append(Label(continue_label))
-            v = self.emit_tacky(statement.condition, instructions)
-            instructions.append(JumpIfNotZero(v, start_label))
-            instructions.append(Label(break_label))
-            return instructions
+            return self.translate_do_while(statement, context)
         elif isinstance(statement, parser.While):
-            instructions = []
-            break_label = f'break_{statement.label}'
-            continue_label = f'continue_{statement.label}'
-            instructions.append(Label(continue_label))
-            v = self.emit_tacky(statement.condition, instructions)
-            instructions.append(JumpIfZero(v, break_label))
-            instructions.extend(self.translate_statement(statement.body))
-            instructions.append(Jump(continue_label))
-            instructions.append(Label(break_label))
-            return instructions
+            return self.translate_while(statement, context)
         elif isinstance(statement, parser.For):
-            instructions = []
-            start_label = self.generate_unique_label("start")
-            break_label = f'break_{statement.label}'
-            continue_label = f'continue_{statement.label}'
-            instructions.extend(self.translate_for_init(statement.for_init))
-            instructions.append(Label(start_label))
-            if statement.condition is not None:
-                v = self.emit_tacky(statement.condition, instructions)
-                instructions.append(JumpIfZero(v, break_label))
-            instructions.extend(self.translate_statement(statement.body))
-            instructions.append(Label(continue_label))
-            if statement.post is not None:
-                self.emit_tacky(statement.post, instructions)
-            instructions.append(Jump(start_label))
-            instructions.append(Label(break_label))
-            return instructions
+            return self.translate_for(statement, context)
         elif isinstance(statement, parser.Label):
-            return self.translate_label(statement)
+            return self.translate_label(statement, context)
         elif isinstance(statement, parser.Compound):
-            return self.translate_block(statement.block)
+            return self.translate_block(statement.block, context)
         elif isinstance(statement, parser.Expression):
-            instructions = []
-            dst = Variable(utils.make_temporary())
-            value = self.emit_tacky(statement, instructions)
-            instructions.append(Copy(value, dst))
-            return instructions
+            return self.translate_expression(statement)
         elif isinstance(statement, parser.Null):
-            return []
+            return self.translate_null()
         else:
             raise SyntaxError(f'Unexpected statement type: {type(statement)}')
+
+    def translate_null(self):
+        return []
+
+    def translate_continue(self, statement, context):
+        instructions = []
+        if context and 'continue_label' in context:
+            instructions.append(Jump(context['continue_label']))
+        else:
+            raise SyntaxError('Continue statement not inside loop')
+        return instructions
+
+    def translate_break(self, statement: 'parser.Break', context):
+        instructions = []
+        if context and 'break_label' in context:
+            instructions.append(Jump(context['break_label']))
+        elif context and 'break_label' in context:
+            instructions.append(Jump(context['break_label']))
+        else:
+            raise SyntaxError('Break statement not inside loop or switch')
+        return instructions
+    
+    def translate_case(self, statement: 'parser.Case', context):
+        instructions = []
+        if context is None:
+            raise SyntaxError('Case statement not inside a switch')
+        case_label = self.generate_unique_label('case')
+        case_value = statement.const.value
+        context['cases'].append((case_value, case_label))
+        instructions.append(Label(case_label))
+        instructions.extend(self.translate_statement(statement.statement, context))
+        return instructions
+    
+    def translate_default(self, statement: 'parser.Default', context):
+        instructions = []
+        if context is None:
+            raise SyntaxError('Default statement not inside a switch')
+        if context['default_label'] is not None:
+            raise SyntaxError('Multiple default labels in switch')
+        default_label = self.generate_unique_label('default')
+        context['default_label'] = default_label
+        instructions.append(Label(default_label))
+        instructions.extend(self.translate_statement(statement.statement, context))
+        return instructions
+
+    def translate_expression(self, statement):
+        instructions = []
+        dst = Variable(utils.make_temporary())
+        value = self.emit_tacky(statement, instructions)
+        instructions.append(Copy(value, dst))
+        return instructions
+
+    def translate_for(self, statement: 'parser.For', context):
+        instructions = []
+        start_label = self.generate_unique_label("start")
+        break_label = f'break_{statement.label}'
+        continue_label = f'continue_{statement.label}'
+        old_context = context
+        context = {
+            'cases': (old_context or {}).get('cases'),
+            'default_label': (old_context or {}).get('default_label'),
+            'break_label': break_label,
+            'continue_label': continue_label,
+            'switch_value': (old_context or {}).get('switch_value'),
+        }
+        instructions.extend(self.translate_for_init(statement.for_init))
+        instructions.append(Label(start_label))
+        if statement.condition is not None:
+            c = self.emit_tacky(statement.condition, instructions)
+            instructions.append(JumpIfZero(c, break_label))
+        instructions.extend(self.translate_statement(statement.body, context))
+        instructions.append(Label(continue_label))
+        if statement.post is not None:
+            self.emit_tacky(statement.post, instructions)
+        instructions.append(Jump(start_label))
+        instructions.append(Label(break_label))
+        context = old_context
+        return instructions
+
+    def translate_while(self, statement: 'parser.While', context):
+        instructions = []
+        break_label = f'break_{statement.label}'
+        continue_label = f'continue_{statement.label}'
+        old_context = context
+        context = {
+            'cases': (old_context or {}).get('cases'),
+            'default_label': (old_context or {}).get('default_label'),
+            'break_label': break_label,
+            'continue_label': continue_label,
+            'switch_value': (old_context or {}).get('switch_value'),
+        }
+        instructions.append(Label(continue_label))
+        c = self.emit_tacky(statement.condition, instructions)
+        instructions.append(JumpIfZero(c, break_label))
+        instructions.extend(self.translate_statement(statement.body, context))
+        instructions.append(Jump(continue_label))
+        instructions.append(Label(break_label))
+        context = old_context
+        return instructions
+
+    def translate_do_while(self, statement: 'parser.DoWhile', context):
+        instructions = []
+        start_label = self.generate_unique_label("start")
+        break_label = f'break_{statement.label}'
+        continue_label = f'continue_{statement.label}'
+        old_context = context
+        context = {
+            'cases': (old_context or {}).get('cases'),
+            'default_label': (old_context or {}).get('default_label'),
+            'break_label': break_label,
+            'continue_label': continue_label,
+            'switch_value': (old_context or {}).get('switch_value'),
+        }
+        instructions.append(Label(start_label))
+        instructions.extend(self.translate_statement(statement.body, context))
+        instructions.append(Label(continue_label))
+        c = self.emit_tacky(statement.condition, instructions)
+        instructions.append(JumpIfNotZero(c, start_label))
+        instructions.append(Label(break_label))
+        context = old_context
+        return instructions
+
+    def translate_switch(self, switch_stmt: 'parser.Switch', context) -> List[Instruction]:
+        instructions = []
+        switch_value = self.emit_tacky(switch_stmt.expr, instructions)
+        break_label = f'break_{switch_stmt.label}'
+        old_context = context
+        switch_context = {
+            'cases': [],
+            'default_label': None,
+            'break_label': break_label,
+            'continue_label': (old_context or {}).get('continue_label'),
+            'switch_value': switch_value,
+        }
+        context = switch_context
+        body_instructions = self.translate_statement(switch_stmt.body, context)
+        context = old_context
+        dispatch_instructions = []
+        for case_value, case_label in switch_context['cases']:
+            tmp = Variable(utils.make_temporary())
+            instructions.append(Binary(common.BinaryOperator.EQUAL_TO, switch_value, Constant(case_value), tmp))
+            dispatch_instructions.append(JumpIfNotZero(tmp, case_label))
+        if switch_context['default_label'] is not None:
+            dispatch_instructions.append(Jump(switch_context['default_label']))
+        else:
+            dispatch_instructions.append(Jump(break_label))
+        instructions.extend(dispatch_instructions)
+        instructions.extend(body_instructions)
+        instructions.append(Label(break_label))
+        return instructions
 
     def translate_declaration(self, declaration: 'parser.Declaration') -> List[Instruction]:
         instructions = []
@@ -188,23 +307,23 @@ class Translator:
         instructions.append(Return(val))
         return instructions
     
-    def translate_if(self, if_stmt: 'parser.If') -> List[Instruction]:
+    def translate_if(self, if_stmt: 'parser.If', context) -> List[Instruction]:
         instructions = []
         if not if_stmt.else_:
             end_label = self.generate_unique_label("end")
             c = self.emit_tacky(if_stmt.condition, instructions)
             instructions.append(JumpIfZero(c, end_label))
-            instructions.extend(self.translate_statement(if_stmt.then))
+            instructions.extend(self.translate_statement(if_stmt.then, context))
             instructions.append(Label(end_label))
         else:
             else_label = self.generate_unique_label("else")
             end_label = self.generate_unique_label("end")
             c = self.emit_tacky(if_stmt.condition, instructions)
             instructions.append(JumpIfZero(c, else_label))
-            instructions.extend(self.translate_statement(if_stmt.then))
+            instructions.extend(self.translate_statement(if_stmt.then, context))
             instructions.append(Jump(end_label))
             instructions.append(Label(else_label))
-            instructions.extend(self.translate_statement(if_stmt.else_))
+            instructions.extend(self.translate_statement(if_stmt.else_, context))
             instructions.append(Label(end_label))
         return instructions
     
@@ -212,9 +331,9 @@ class Translator:
         instructions = [Jump(goto_stmt.label)]
         return instructions
     
-    def translate_label(self, label_stmt: 'parser.Label'):
+    def translate_label(self, label_stmt: 'parser.Label', context):
         instructions = [Label(label_stmt.label)]
-        instructions.extend(self.translate_statement(label_stmt.statement))
+        instructions.extend(self.translate_statement(label_stmt.statement, context))
         return instructions
 
     def emit_tacky(self, exp: 'parser.Expression', instructions: List[Instruction]) -> Value:

@@ -14,6 +14,9 @@ WHILE = 'WHILE'
 FOR = 'FOR'
 BREAK = 'BREAK'
 CONTINUE = 'CONTINUE'
+SWITCH = 'SWITCH'
+CASE = 'CASE'
+DEFAULT = 'DEFAULT'
 
 TERNARY_OP = 'TERNARY_OP'
 
@@ -85,8 +88,12 @@ token_specification = [
     (FOR, r'for\b'),
     (BREAK, r'break\b'),
     (CONTINUE, r'continue\b'),
+    (SWITCH, r'switch\b'),
+    (CASE, r'case\b'),
+    (DEFAULT, r'default\b'),
 
-    (LABEL, r'[a-zA-Z_][a-zA-Z0-9_]*\s*:(?=\s*;|\s*\n|\s*//|\s*/\*)'),
+    # (LABEL, r'[a-zA-Z_][a-zA-Z0-9_]*\s*:(?=\s*;|\s*\n|\s*//|\s*/\*)'),
+    # (LABEL, r'[a-zA-Z_][a-zA-Z0-9_]*\s*:'),
     (IDENTIFIER, r'[a-zA-Z_]\w*\b'),
     (CONSTANT, r'\b\d+\b'),
     (COMMENT, r'//.*|/\*[\s\S]*?\*/'),
