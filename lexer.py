@@ -170,6 +170,8 @@ ignored_tokens = {WHITESPACE, COMMENT, PRECOMPILER_DIRECTIVE}
 
 def tokenize(code):
     pos = 0
+    line = 1
+    col = 1
     while pos < len(code):
         match = get_token(code, pos)
         if match is not None:
@@ -178,7 +180,15 @@ def tokenize(code):
             if type_ not in ignored_tokens:
                 yield type_, value
             pos = match.end()
+            # Update line and column numbers
+            lines = value.split('\n')
+            if len(lines) > 1:
+                line += len(lines) - 1
+                col = len(lines[-1]) + 1
+            else:
+                col += len(value)
         else:
             line_number = code.count('\n', 0, pos) + 1
-            column_number = pos - code.rfind('\n', 0, pos)
+            line_start = code.rfind('\n', 0, pos)
+            column_number = pos - line_start
             raise SyntaxError(f'Unexpected character at line {line_number}, column {column_number}: {code[pos]}')
