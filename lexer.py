@@ -92,8 +92,6 @@ token_specification = [
     (CASE, r'case\b'),
     (DEFAULT, r'default\b'),
 
-    # (LABEL, r'[a-zA-Z_][a-zA-Z0-9_]*\s*:(?=\s*;|\s*\n|\s*//|\s*/\*)'),
-    # (LABEL, r'[a-zA-Z_][a-zA-Z0-9_]*\s*:'),
     (IDENTIFIER, r'[a-zA-Z_]\w*\b'),
     (CONSTANT, r'\b\d+\b'),
     (COMMENT, r'//.*|/\*[\s\S]*?\*/'),
