@@ -105,7 +105,7 @@ class Translator:
         for item in block.block_items:
             if isinstance(item, parser.Statement):
                 instructions.extend(self.translate_statement(item, context))
-            elif isinstance(item, parser.Declaration):
+            elif isinstance(item, parser.VarDecl):
                 instructions.extend(self.translate_declaration(item))
         return instructions
 
@@ -293,7 +293,7 @@ class Translator:
         instructions.append(Label(break_label))
         return instructions
 
-    def translate_declaration(self, declaration: 'parser.Declaration') -> List[Instruction]:
+    def translate_declaration(self, declaration: 'parser.VarDecl') -> List[Instruction]:
         instructions = []
         if declaration.init is not None:
             value = self.emit_tacky(declaration.init, instructions)

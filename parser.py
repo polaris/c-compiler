@@ -1,6 +1,6 @@
 import lexer
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List, Optional, Union
 
 from common import UnaryOperator, BinaryOperator
 
@@ -117,17 +117,13 @@ class Function(Node):
     block: 'Block'
 
 
-class BlockItem(Node):
-    pass
-
-
 @dataclass
 class Block(Node):
-    block_items: List['BlockItem']
+    block_items: List[Union['VarDecl', 'Statement']]
 
 
 @dataclass
-class Declaration(BlockItem):
+class VarDecl(Node):
     name: str
     init: Optional['Expression'] = None
 
@@ -138,7 +134,7 @@ class ForInit(Node):
 
 @dataclass
 class InitDeclaration(ForInit):
-    declaration: 'Declaration'
+    declaration: 'VarDecl'
 
 
 @dataclass
@@ -146,7 +142,7 @@ class InitExpression(ForInit):
     expression: 'Expression'
 
 
-class Statement(BlockItem):
+class Statement(Node):
     pass
 
 
@@ -414,7 +410,7 @@ def parse_declaration(tokens):
         pop(tokens)
         exp = parse_expression(tokens, 0)
     expect(lexer.SEMICOLON, tokens)
-    return Declaration(identifier, exp)
+    return VarDecl(identifier, exp)
 
 
 def parse_return(tokens):

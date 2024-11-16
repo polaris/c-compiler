@@ -33,7 +33,7 @@ def process_function(function: parser.Function, variable_map: Dict):
             raise SyntaxError(f'Use of undeclared label \'{key}\'')
 
 
-def resolve_declaration(declaration: parser.Declaration, variable_map: Dict):
+def resolve_declaration(declaration: parser.VarDecl, variable_map: Dict):
     if declaration.name in variable_map and variable_map[declaration.name].from_current_block:
         raise SyntaxError(f'Variable {declaration.name} already defined in current scope')
     unique_name = utils.make_temporary()
@@ -41,7 +41,7 @@ def resolve_declaration(declaration: parser.Declaration, variable_map: Dict):
     init = None
     if declaration.init is not None:
         init = resolve_exp(declaration.init, variable_map)
-    return parser.Declaration(unique_name, init)
+    return parser.VarDecl(unique_name, init)
 
 
 def resolve_statement(statement: parser.Statement, variable_map: Dict, labels: Dict):
@@ -124,7 +124,7 @@ def copy_variable_map(variable_map: Dict):
 def resolve_block(statement: parser.Block, variable_map: Dict, labels: Dict):
     block_items = []
     for item in statement.block_items:
-        if isinstance(item, parser.Declaration):
+        if isinstance(item, parser.VarDecl):
             block_items.append(resolve_declaration(item, variable_map))
         elif isinstance(item, parser.Statement):
             block_items.append(resolve_statement(item, variable_map, labels))
@@ -174,7 +174,7 @@ def ll_process_function(function: parser.Function):
 def ll_process_block(block: parser.Block, context):
     block_items = []
     for item in block.block_items:
-        if isinstance(item, parser.Declaration):
+        if isinstance(item, parser.VarDecl):
             block_items.append(item)
         elif isinstance(item, parser.Statement):
             block_items.append(ll_process_statement(item, context))
